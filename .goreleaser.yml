@@ -1,0 +1,36 @@
+version: 2
+project_name: tdms-go
+before:
+  hooks:
+    - go mod download
+    - go generate ./...
+    - go mod tidy
+builds:
+  - id: tdms-cli
+    binary: tdms-cli
+    dir: tools/cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{ if index .Env "VERSION" }}{{ .Env.VERSION }}{{ else }}{{ .Version }}{{ end }}
+archives:
+  - id: tdms-cli
+    name_template: 'tdms-cli_{{ if index .Env "VERSION" }}{{ .Env.VERSION }}{{ else }}{{ .Version }}{{ end }}_{{ .Os }}_{{ .Arch }}'
+    ids:
+      - tdms-cli
+    formats:
+      - zip
+checksum:
+  name_template: 'checksums.txt'
+changelog:
+  disable: true
+release:
+  disable: false

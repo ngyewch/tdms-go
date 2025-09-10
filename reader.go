@@ -95,6 +95,10 @@ func (reader *Reader) ReadMetaData(leadIn *LeadIn) error {
 	}
 
 	r := io.LimitReader(reader.r, int64(leadIn.RawDataOffset))
+	vr := &ValueReader{
+		ByteOrder: byteOrder,
+	}
+
 	var numberOfObjects uint32
 	err := binary.Read(r, byteOrder, &numberOfObjects)
 	if err != nil {
@@ -103,7 +107,7 @@ func (reader *Reader) ReadMetaData(leadIn *LeadIn) error {
 
 	fmt.Println("----")
 	for i := 0; i < int(numberOfObjects); i++ {
-		objectPath, err := readString(r, byteOrder)
+		objectPath, err := vr.ReadString(r)
 		if err != nil {
 			return err
 		}
@@ -190,11 +194,11 @@ func (reader *Reader) ReadMetaData(leadIn *LeadIn) error {
 		if numberOfProperties > 0 {
 			fmt.Println("- properties:")
 			for j := 0; j < int(numberOfProperties); j++ {
-				propertyName, err := readString(r, byteOrder)
+				propertyName, err := vr.ReadString(r)
 				if err != nil {
 					return err
 				}
-				propertyValue, err := readValue(r, byteOrder)
+				propertyValue, err := vr.ReadValue(r)
 				if err != nil {
 					return err
 				}
@@ -204,59 +208,4 @@ func (reader *Reader) ReadMetaData(leadIn *LeadIn) error {
 	}
 
 	return nil
-}
-
-func readString(r io.Reader, byteOrder binary.ByteOrder) (string, error) {
-	var stringLength uint32
-	err := binary.Read(r, byteOrder, &stringLength)
-	if err != nil {
-		return "", err
-	}
-	buf := make([]byte, stringLength)
-	_, err = io.ReadFull(r, buf)
-	if err != nil {
-		return "", err
-	}
-	return string(buf), nil
-}
-
-type DataType uint32
-
-const (
-	DataTypeVoid DataType = iota
-	DataTypeI8
-	DataTypeI16
-	DataTypeI32
-	DataTypeI64
-	DataTypeU8
-	DataTypeU16
-	DataTypeU32
-	DataTypeU64
-	DataTypeSingleFloat
-	DataTypeDoubleFloat
-	DataTypeExtendedFloat
-	DataTypeSingleFloatWithUnit   = 0x19
-	DataTypeDoubleFloatWithUnit   = 0x1A
-	DataTypeExtendedFloatWithUnit = 0x1C
-	DataTypeString                = 0x20
-	DataTypeBoolean               = 0x21
-	DataTypeTimestamp             = 0x44
-	DataTypeFixedPoint            = 0x4f
-	DataTypeComplexSingleFloat    = 0x08000c
-	DataTypeComplexDoubleFloat    = 0x10000d
-	DataTypeDAQmxRawData          = 0xffffffff
-)
-
-func readValue(r io.Reader, byteOrder binary.ByteOrder) (any, error) {
-	var dataType DataType
-	err := binary.Read(r, byteOrder, &dataType)
-	if err != nil {
-		return nil, err
-	}
-	switch dataType {
-	case DataTypeString:
-		return readString(r, byteOrder)
-	default:
-		return nil, fmt.Errorf("unsupported data type %d", dataType)
-	}
 }

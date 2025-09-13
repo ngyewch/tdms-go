@@ -6,8 +6,19 @@ import (
 	"io"
 )
 
+var (
+	LittleEndianValueReader = NewValueReader(binary.LittleEndian)
+	BigEndianValueReader    = NewValueReader(binary.BigEndian)
+)
+
 type ValueReader struct {
-	ByteOrder binary.ByteOrder
+	byteOrder binary.ByteOrder
+}
+
+func NewValueReader(byteOrder binary.ByteOrder) *ValueReader {
+	return &ValueReader{
+		byteOrder: byteOrder,
+	}
 }
 
 type VoidType struct{}
@@ -18,7 +29,7 @@ func (vr *ValueReader) ReadVoid(r io.Reader) (VoidType, error) {
 
 func (vr *ValueReader) ReadI8(r io.Reader) (int8, error) {
 	var v int8
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -27,7 +38,7 @@ func (vr *ValueReader) ReadI8(r io.Reader) (int8, error) {
 
 func (vr *ValueReader) ReadI16(r io.Reader) (int16, error) {
 	var v int16
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -36,7 +47,7 @@ func (vr *ValueReader) ReadI16(r io.Reader) (int16, error) {
 
 func (vr *ValueReader) ReadI32(r io.Reader) (int32, error) {
 	var v int32
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -45,7 +56,7 @@ func (vr *ValueReader) ReadI32(r io.Reader) (int32, error) {
 
 func (vr *ValueReader) ReadI64(r io.Reader) (int64, error) {
 	var v int64
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -54,7 +65,7 @@ func (vr *ValueReader) ReadI64(r io.Reader) (int64, error) {
 
 func (vr *ValueReader) ReadU8(r io.Reader) (uint8, error) {
 	var v uint8
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -63,7 +74,7 @@ func (vr *ValueReader) ReadU8(r io.Reader) (uint8, error) {
 
 func (vr *ValueReader) ReadU16(r io.Reader) (uint16, error) {
 	var v uint16
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -72,7 +83,7 @@ func (vr *ValueReader) ReadU16(r io.Reader) (uint16, error) {
 
 func (vr *ValueReader) ReadU32(r io.Reader) (uint32, error) {
 	var v uint32
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -81,7 +92,7 @@ func (vr *ValueReader) ReadU32(r io.Reader) (uint32, error) {
 
 func (vr *ValueReader) ReadU64(r io.Reader) (uint64, error) {
 	var v uint64
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -90,7 +101,7 @@ func (vr *ValueReader) ReadU64(r io.Reader) (uint64, error) {
 
 func (vr *ValueReader) ReadSingleFloat(r io.Reader) (float32, error) {
 	var v float32
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -99,7 +110,7 @@ func (vr *ValueReader) ReadSingleFloat(r io.Reader) (float32, error) {
 
 func (vr *ValueReader) ReadDoubleFloat(r io.Reader) (float64, error) {
 	var v float64
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -121,7 +132,7 @@ func (vr *ValueReader) ReadString(r io.Reader) (string, error) {
 
 func (vr *ValueReader) ReadBoolean(r io.Reader) (bool, error) {
 	var v bool
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return false, err
 	}
@@ -130,7 +141,7 @@ func (vr *ValueReader) ReadBoolean(r io.Reader) (bool, error) {
 
 func (vr *ValueReader) ReadComplexSingleFloat(r io.Reader) (complex64, error) {
 	var v complex64
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
@@ -139,11 +150,19 @@ func (vr *ValueReader) ReadComplexSingleFloat(r io.Reader) (complex64, error) {
 
 func (vr *ValueReader) ReadComplexDoubleFloat(r io.Reader) (complex128, error) {
 	var v complex128
-	err := binary.Read(r, vr.ByteOrder, &v)
+	err := binary.Read(r, vr.byteOrder, &v)
 	if err != nil {
 		return 0, err
 	}
 	return v, nil
+}
+
+func (vr *ValueReader) ReadDataType(r io.Reader) (DataType, error) {
+	v, err := vr.ReadU32(r)
+	if err != nil {
+		return 0, err
+	}
+	return DataType(v), nil
 }
 
 func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {

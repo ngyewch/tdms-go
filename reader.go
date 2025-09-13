@@ -1,204 +1,151 @@
 package tdms
 
 import (
-	"bytes"
-	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 )
 
-var (
-	ErrTDSMTagNotFound = errors.New("TDSM tag not found")
-)
-
 type Reader struct {
-	r io.Reader
+	r io.ReadSeeker
 }
 
-type LeadIn struct {
-	ToC               TableOfContents
-	VersionNumber     uint32
-	NextSegmentOffset uint64
-	RawDataOffset     uint64
-}
-
-type TableOfContents struct {
-	MetaData        bool
-	RawData         bool
-	DAQmxRawData    bool
-	InterleavedData bool
-	BigEndian       bool
-	NewObjList      bool
-}
-
-func NewReader(r io.Reader) *Reader {
+func NewReader(r io.ReadSeeker) *Reader {
 	return &Reader{
 		r: r,
 	}
 }
 
-func (reader *Reader) ReadLeadIn() (*LeadIn, error) {
-	tdsmTag := make([]byte, 4)
-	_, err := io.ReadFull(reader.r, tdsmTag)
+type Segment struct{}
+
+func (reader *Reader) NextSegment() (*Segment, error) {
+	segmentType, leadIn, err := readLeadIn(reader.r)
 	if err != nil {
 		return nil, err
 	}
-	if bytes.Compare(tdsmTag, []byte("TDSm")) != 0 {
-		return nil, ErrTDSMTagNotFound
+	fmt.Printf("segmentType: %v, leadIn: %v\n", segmentType, leadIn)
+	if leadIn.ToC.MetaData() {
+		err = reader.ReadMetaData(leadIn.ToC)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// TODO
 	}
-
-	leadIn := LeadIn{
-		ToC: TableOfContents{},
-	}
-
-	var tocMask uint32
-	err = binary.Read(reader.r, binary.LittleEndian, &tocMask)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("tocMask: %+v\n", tocMask)
-	leadIn.ToC.MetaData = tocMask&(1<<1) != 0
-	leadIn.ToC.RawData = tocMask&(1<<3) != 0
-	leadIn.ToC.DAQmxRawData = tocMask&(1<<7) != 0
-	leadIn.ToC.InterleavedData = tocMask&(1<<5) != 0
-	leadIn.ToC.BigEndian = tocMask&(1<<6) != 0
-	leadIn.ToC.NewObjList = tocMask&(1<<2) != 0
-
-	var byteOrder binary.ByteOrder = binary.LittleEndian
-	if leadIn.ToC.BigEndian {
-		byteOrder = binary.BigEndian
-	}
-
-	err = binary.Read(reader.r, byteOrder, &leadIn.VersionNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	err = binary.Read(reader.r, byteOrder, &leadIn.NextSegmentOffset)
-	if err != nil {
-		return nil, err
-	}
-
-	err = binary.Read(reader.r, byteOrder, &leadIn.RawDataOffset)
-	if err != nil {
-		return nil, err
-	}
-
-	return &leadIn, nil
+	return &Segment{}, nil
 }
 
-func (reader *Reader) ReadMetaData(leadIn *LeadIn) error {
-	var byteOrder binary.ByteOrder = binary.LittleEndian
-	if leadIn.ToC.BigEndian {
-		byteOrder = binary.BigEndian
-	}
+const (
+	NoRawData                 = 0xffffffff
+	DAQmxFormatChangingScaler = 0x00001269
+	DAQmxDigitalLineScaler    = 0x0000126a
+)
 
-	r := io.LimitReader(reader.r, int64(leadIn.RawDataOffset))
-	vr := &ValueReader{
-		ByteOrder: byteOrder,
-	}
+func (reader *Reader) ReadMetaData(toc TableOfContents) error {
+	valueReader := toc.ValueReader()
 
-	var numberOfObjects uint32
-	err := binary.Read(r, byteOrder, &numberOfObjects)
+	// TODO handle NewObjList
+
+	numberOfObjects, err := valueReader.ReadU32(reader.r)
 	if err != nil {
 		return err
 	}
-
 	fmt.Println("----")
 	for i := 0; i < int(numberOfObjects); i++ {
-		objectPath, err := vr.ReadString(r)
+		objectPath, err := valueReader.ReadString(reader.r)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("objectPath: %s\n", objectPath)
-		var rawDataIndex uint32
-		err = binary.Read(r, byteOrder, &rawDataIndex)
+		rawDataIndex, err := valueReader.ReadU32(reader.r)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("- rawDataIndex: %d\n", rawDataIndex)
-		if rawDataIndex == 0xffffffff {
+		if rawDataIndex == NoRawData {
 			// no raw data assigned
-		} else if leadIn.ToC.DAQmxRawData {
-			if rawDataIndex == 0x1269 { // DAQmx Format Changing scaler
+		} else if toc.DAQmxRawData() {
+			if rawDataIndex == DAQmxFormatChangingScaler {
 				// TODO
-			} else if rawDataIndex == 0x126a { // DAQmx Digital Line scaler
+			} else if rawDataIndex == DAQmxDigitalLineScaler {
 				// TODO
+			} else {
+				return fmt.Errorf("invalid rawDataIndex: 0x%08x", rawDataIndex)
 			}
-			var dataType DataType
-			err = binary.Read(r, byteOrder, &dataType)
+
+			dataType, err := valueReader.ReadDataType(reader.r)
 			if err != nil {
 				return err
 			}
-			fmt.Println("dataType", dataType)
-			var arrayDimension uint32
-			err = binary.Read(r, byteOrder, &arrayDimension)
+			fmt.Printf("dataType: %v\n", dataType)
+			arrayDimension, err := valueReader.ReadU32(reader.r)
 			if err != nil {
 				return err
 			}
-			var numberOfValues uint64
-			err = binary.Read(r, byteOrder, &numberOfValues)
+			fmt.Printf("arrayDimension: %v\n", arrayDimension)
+			chunkSize, err := valueReader.ReadU64(reader.r)
 			if err != nil {
 				return err
 			}
-			if rawDataIndex == 0x1269 {
-				var vectorSize uint32
-				err = binary.Read(r, byteOrder, &vectorSize)
+			fmt.Printf("chunkSize: %v\n", chunkSize)
+
+			scalerVectorSize, err := valueReader.ReadU32(reader.r)
+			if err != nil {
+				return err
+			}
+
+			for i := 0; i < int(scalerVectorSize); i++ {
+				daqMxDataType, err := valueReader.ReadDataType(reader.r)
 				if err != nil {
 					return err
 				}
-				for j := 0; j < int(vectorSize); j++ {
-					var daqmxDataType DataType
-					err = binary.Read(r, byteOrder, &daqmxDataType)
-					if err != nil {
-						return err
-					}
-					fmt.Println("daqmxDataType", daqmxDataType)
-					var rawBufferIndex uint32
-					err = binary.Read(r, byteOrder, &rawBufferIndex)
-					if err != nil {
-						return err
-					}
-					var rawByteOffsetWithinTheStride uint32
-					err = binary.Read(r, byteOrder, &rawByteOffsetWithinTheStride)
-					if err != nil {
-						return err
-					}
-					var sampleFormatBitmap uint32
-					err = binary.Read(r, byteOrder, &sampleFormatBitmap)
-					if err != nil {
-						return err
-					}
-					var scaleId uint32
-					err = binary.Read(r, byteOrder, &scaleId)
-					if err != nil {
-						return err
-					}
-				}
-			}
-			var vectorSize uint32
-			for j := 0; j < int(vectorSize); j++ {
-				var v uint32 // TODO
-				err = binary.Read(r, byteOrder, &v)
+				fmt.Printf("daqMxDataType: %v\n", daqMxDataType)
+				rawBufferIndex, err := valueReader.ReadU32(reader.r)
 				if err != nil {
 					return err
+				}
+				fmt.Printf("rawBufferIndex: %v\n", rawBufferIndex)
+				rawByteOffsetWithinTheStride, err := valueReader.ReadU32(reader.r)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("rawByteOffsetWithinTheStride: %v\n", rawByteOffsetWithinTheStride)
+				sampleFormatBitmap, err := valueReader.ReadU32(reader.r)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("sampleFormatBitmap: %v\n", sampleFormatBitmap)
+				scaleId, err := valueReader.ReadU32(reader.r)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("scaleId: %v\n", scaleId)
+
+				rawDataVectorSize, err := valueReader.ReadU32(reader.r)
+				if err != nil {
+					return err
+				}
+				var rawData []uint32
+				for i := 0; i < int(rawDataVectorSize); i++ {
+					v, err := valueReader.ReadU32(reader.r)
+					if err != nil {
+						return err
+					}
+					rawData = append(rawData, v)
 				}
 			}
 		} else {
 			// TODO
 		}
 
-		var numberOfProperties uint32
-		err = binary.Read(r, byteOrder, &numberOfProperties)
+		numberOfProperties, err := valueReader.ReadU32(reader.r)
 		if numberOfProperties > 0 {
 			fmt.Println("- properties:")
 			for j := 0; j < int(numberOfProperties); j++ {
-				propertyName, err := vr.ReadString(r)
+				propertyName, err := valueReader.ReadString(reader.r)
 				if err != nil {
 					return err
 				}
-				propertyValue, err := vr.ReadValue(r)
+				propertyValue, err := valueReader.ReadValue(reader.r)
 				if err != nil {
 					return err
 				}

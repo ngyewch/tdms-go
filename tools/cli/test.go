@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/ngyewch/tdms-go"
@@ -19,12 +18,7 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 	}(f)
 
 	reader := tdms.NewReader(f)
-	leadIn, err := reader.ReadLeadIn()
-	if err != nil {
-		return err
-	}
-	fmt.Printf("leadIn: %+v\n", leadIn)
-	err = reader.ReadMetaData(leadIn)
+	_, err = reader.NextSegment()
 	if err != nil {
 		return err
 	}

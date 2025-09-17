@@ -24,6 +24,9 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 	for {
 		segment, err := reader.NextSegment()
 		if err != nil {
+			if err == io.EOF {
+				break
+			}
 			return err
 		}
 		if segment == nil {

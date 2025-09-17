@@ -5,6 +5,10 @@ import (
 	"io"
 )
 
+const (
+	leadInByteLength = 28
+)
+
 type Reader struct {
 	r io.ReadSeeker
 }
@@ -24,6 +28,13 @@ type Segment struct {
 func (reader *Reader) NextSegment() (*Segment, error) {
 	var segment Segment
 	var err error
+
+	segmentOffset, err := reader.r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("segment offset: 0x%x (%d)\n", segmentOffset, segmentOffset)
+
 	segment.Type, segment.LeadIn, err = readLeadIn(reader.r)
 	if err != nil {
 		return nil, err
@@ -36,6 +47,18 @@ func (reader *Reader) NextSegment() (*Segment, error) {
 	} else {
 		// TODO
 	}
+
+	pos, err := reader.r.Seek(segmentOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("pos: 0x%x (%d)\n", pos, pos)
+
+	_, err = reader.r.Seek(segmentOffset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+
 	return &segment, nil
 }
 

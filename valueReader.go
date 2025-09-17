@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"math"
+	"time"
 )
 
 var (
@@ -139,6 +141,46 @@ func (vr *ValueReader) ReadBoolean(r io.Reader) (bool, error) {
 	return v, nil
 }
 
+var (
+	tdmsEpoch = time.Date(1904, time.January, 1, 0, 0, 0, 0, time.UTC)
+	unixEpoch = time.Date(1970, time.January, 1, 0, 0, 0, 0, time.UTC)
+)
+
+const (
+	fractionsPerNanosecond = (10 ^ -9) / (2 ^ -64)
+)
+
+func (vr *ValueReader) ReadTimestamp(r io.Reader) (time.Time, error) {
+	var seconds int64
+	var fractionalSeconds uint64
+	var err error
+
+	switch vr.byteOrder {
+	case binary.LittleEndian:
+		fractionalSeconds, err = vr.ReadU64(r)
+		if err != nil {
+			return time.Time{}, err
+		}
+		seconds, err = vr.ReadI64(r)
+		if err != nil {
+			return time.Time{}, err
+		}
+	case binary.BigEndian:
+		seconds, err = vr.ReadI64(r)
+		if err != nil {
+			return time.Time{}, err
+		}
+		fractionalSeconds, err = vr.ReadU64(r)
+		if err != nil {
+			return time.Time{}, err
+		}
+	default:
+		return time.Time{}, fmt.Errorf("unknown byte order")
+	}
+	nanoSeconds := float64(fractionalSeconds) * fractionsPerNanosecond
+	return time.Unix(seconds+tdmsEpoch.Unix()-unixEpoch.Unix(), int64(math.Round(nanoSeconds))), nil
+}
+
 func (vr *ValueReader) ReadComplexSingleFloat(r io.Reader) (complex64, error) {
 	var v complex64
 	err := binary.Read(r, vr.byteOrder, &v)
@@ -201,7 +243,8 @@ func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {
 		return vr.ReadString(r)
 	case DataTypeBoolean:
 		return vr.ReadBoolean(r)
-	//case DataTypeTimestamp:
+	case DataTypeTimestamp:
+		return vr.ReadTimestamp(r)
 	//case DataTypeFixedPoint:
 	case DataTypeComplexSingleFloat:
 		return vr.ReadComplexSingleFloat(r)

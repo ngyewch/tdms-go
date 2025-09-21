@@ -62,4 +62,9 @@ func TestParse(t *testing.T) {
 			assert.Equal(t, objectPath.Channel, "channel 1")
 		}
 	}
+	{
+		_, err := ObjectPathFromString("/'group 1'/'channel 1'/'item 1'")
+		var invalidPathError *InvalidPathError
+		assert.ErrorAs(t, err, &invalidPathError)
+	}
 }

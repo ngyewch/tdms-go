@@ -3,58 +3,89 @@ package tdms
 import (
 	"fmt"
 	"io"
+	"os"
 )
 
 const (
 	leadInByteLength = 28
 )
 
-type Reader struct {
-	r io.ReadSeeker
-}
-
-func NewReader(r io.ReadSeeker) *Reader {
-	return &Reader{
-		r: r,
-	}
+type File struct {
+	r        io.ReadSeekCloser
+	segments []*Segment
 }
 
 type Segment struct {
 	Type     SegmentType
 	LeadIn   *LeadIn
 	MetaData *MetaData
+	Offset   int64
 }
 
-func (reader *Reader) NextSegment() (*Segment, error) {
-	var segment Segment
-	var err error
-
-	segmentOffset, err := reader.r.Seek(0, io.SeekCurrent)
+func OpenFile(path string) (*File, error) {
+	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Printf("segment offset: 0x%x (%d)\n", segmentOffset, segmentOffset)
+	tdmsFile := &File{
+		r: f,
+	}
+	err = tdmsFile.readMetadata()
+	if err != nil {
+		return nil, err
+	}
+	return tdmsFile, nil
+}
 
-	segment.Type, segment.LeadIn, err = readLeadIn(reader.r)
+func (file *File) Close() error {
+	return file.r.Close()
+}
+
+func (file *File) Segments() []*Segment {
+	return file.segments
+}
+
+func (file *File) readMetadata() error {
+	for {
+		segment, err := file.nextSegment()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return err
+		}
+		if segment == nil {
+			break
+		}
+		file.segments = append(file.segments, segment)
+	}
+	return nil
+}
+
+func (file *File) nextSegment() (*Segment, error) {
+	var segment Segment
+	var err error
+
+	segment.Offset, err = file.r.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return nil, err
+	}
+
+	segment.Type, segment.LeadIn, err = readLeadIn(file.r)
 	if err != nil {
 		return nil, err
 	}
 	if segment.LeadIn.ToC.MetaData() {
-		segment.MetaData, err = reader.ReadMetaData(segment.LeadIn.ToC)
+		segment.MetaData, err = file.ReadMetaData(segment.LeadIn.ToC)
 		if err != nil {
 			return nil, err
 		}
+		// TODO
 	} else {
 		// TODO
 	}
 
-	pos, err := reader.r.Seek(segmentOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-	fmt.Printf("pos: 0x%x (%d)\n", pos, pos)
-
-	_, err = reader.r.Seek(segmentOffset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
+	_, err = file.r.Seek(segment.Offset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
 	if err != nil {
 		return nil, err
 	}
@@ -70,6 +101,12 @@ const (
 
 type MetaData struct {
 	Objects []*Object
+}
+
+type Group struct {
+}
+
+type Channel struct {
 }
 
 type Object struct {
@@ -88,21 +125,21 @@ type DAQmxRawDataIndex struct {
 	RawDataWidths  []uint32
 }
 
-func (reader *Reader) ReadMetaData(toc TableOfContents) (*MetaData, error) {
+func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 	valueReader := toc.ValueReader()
 	// TODO handle NewObjList
 	var metadata MetaData
-	numberOfObjects, err := valueReader.ReadU32(reader.r)
+	numberOfObjects, err := valueReader.ReadU32(file.r)
 	if err != nil {
 		return nil, err
 	}
 	for i := 0; i < int(numberOfObjects); i++ {
 		var object Object
-		object.Path, err = valueReader.ReadString(reader.r)
+		object.Path, err = valueReader.ReadString(file.r)
 		if err != nil {
 			return nil, err
 		}
-		object.RawDataIndex, err = valueReader.ReadU32(reader.r)
+		object.RawDataIndex, err = valueReader.ReadU32(file.r)
 		if err != nil {
 			return nil, err
 		}
@@ -113,35 +150,35 @@ func (reader *Reader) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 				var daQmxRawDataIndex DAQmxRawDataIndex
 				object.V = &daQmxRawDataIndex
 
-				daQmxRawDataIndex.DataType, err = valueReader.ReadDataType(reader.r)
+				daQmxRawDataIndex.DataType, err = valueReader.ReadDataType(file.r)
 				if err != nil {
 					return nil, err
 				}
-				daQmxRawDataIndex.ArrayDimension, err = valueReader.ReadU32(reader.r)
+				daQmxRawDataIndex.ArrayDimension, err = valueReader.ReadU32(file.r)
 				if err != nil {
 					return nil, err
 				}
-				daQmxRawDataIndex.ChunkSize, err = valueReader.ReadU64(reader.r)
+				daQmxRawDataIndex.ChunkSize, err = valueReader.ReadU64(file.r)
 				if err != nil {
 					return nil, err
 				}
-				scalerVectorSize, err := valueReader.ReadU32(reader.r)
+				scalerVectorSize, err := valueReader.ReadU32(file.r)
 				if err != nil {
 					return nil, err
 				}
 				for i := 0; i < int(scalerVectorSize); i++ {
-					scaler, err := readDAQmxFormatChangingScaler(reader.r, valueReader)
+					scaler, err := readDAQmxFormatChangingScaler(file.r, valueReader)
 					if err != nil {
 						return nil, err
 					}
 					daQmxRawDataIndex.Scalers = append(daQmxRawDataIndex.Scalers, scaler)
 				}
-				rawDataWidthVectorSize, err := valueReader.ReadU32(reader.r)
+				rawDataWidthVectorSize, err := valueReader.ReadU32(file.r)
 				if err != nil {
 					return nil, err
 				}
 				for i := 0; i < int(rawDataWidthVectorSize); i++ {
-					rawDataWidth, err := valueReader.ReadU32(reader.r)
+					rawDataWidth, err := valueReader.ReadU32(file.r)
 					if err != nil {
 						return nil, err
 					}
@@ -158,16 +195,16 @@ func (reader *Reader) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 		}
 
 		object.Properties = make(map[string]any)
-		numberOfProperties, err := valueReader.ReadU32(reader.r)
+		numberOfProperties, err := valueReader.ReadU32(file.r)
 		if err != nil {
 			return nil, err
 		}
 		for j := 0; j < int(numberOfProperties); j++ {
-			propertyName, err := valueReader.ReadString(reader.r)
+			propertyName, err := valueReader.ReadString(file.r)
 			if err != nil {
 				return nil, err
 			}
-			propertyValue, err := valueReader.ReadValue(reader.r)
+			propertyValue, err := valueReader.ReadValue(file.r)
 			if err != nil {
 				return nil, err
 			}

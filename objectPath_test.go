@@ -20,6 +20,8 @@ func TestParse(t *testing.T) {
 			assert.False(t, objectPath.IsChannel())
 			assert.Empty(t, objectPath.Group)
 			assert.Empty(t, objectPath.Channel)
+
+			assert.Equal(t, "/", objectPath.String())
 		}
 	}
 	{
@@ -38,8 +40,10 @@ func TestParse(t *testing.T) {
 			assert.False(t, objectPath.IsRoot())
 			assert.True(t, objectPath.IsGroup())
 			assert.False(t, objectPath.IsChannel())
-			assert.Equal(t, objectPath.Group, "group 1")
+			assert.Equal(t, "group 1", objectPath.Group)
 			assert.Empty(t, objectPath.Channel)
+
+			assert.Equal(t, "/'group 1'", objectPath.String())
 		}
 	}
 	{
@@ -58,8 +62,10 @@ func TestParse(t *testing.T) {
 			assert.False(t, objectPath.IsRoot())
 			assert.False(t, objectPath.IsGroup())
 			assert.True(t, objectPath.IsChannel())
-			assert.Equal(t, objectPath.Group, "group 1")
-			assert.Equal(t, objectPath.Channel, "channel 1")
+			assert.Equal(t, "group 1", objectPath.Group)
+			assert.Equal(t, "channel 1", objectPath.Channel)
+
+			assert.Equal(t, "/'group 1'/'channel 1'", objectPath.String())
 		}
 	}
 	{

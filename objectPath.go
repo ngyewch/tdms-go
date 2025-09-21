@@ -112,3 +112,15 @@ func (path ObjectPath) IsGroup() bool {
 func (path ObjectPath) IsChannel() bool {
 	return (path.Group != "") && (path.Channel != "")
 }
+
+func (path ObjectPath) String() string {
+	if path.IsRoot() {
+		return "/"
+	} else if path.IsGroup() {
+		return "/'" + path.Group + "'"
+	} else if path.IsChannel() {
+		return "/'" + path.Group + "'/'" + path.Channel + "'"
+	} else {
+		return ""
+	}
+}

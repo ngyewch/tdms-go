@@ -73,4 +73,21 @@ func TestParse(t *testing.T) {
 		var invalidPathError *InvalidPathError
 		assert.ErrorAs(t, err, &invalidPathError)
 	}
+	{
+		_, err := ObjectPathFromString("/'group 1'/'bob's channel'")
+		var invalidPathError *InvalidPathError
+		assert.ErrorAs(t, err, &invalidPathError)
+	}
+	{
+		objectPath, err := ObjectPathFromString("/'group 1'/'bob''s channel'")
+		if assert.NoError(t, err) {
+			assert.False(t, objectPath.IsRoot())
+			assert.False(t, objectPath.IsGroup())
+			assert.True(t, objectPath.IsChannel())
+			assert.Equal(t, "group 1", objectPath.Group)
+			assert.Equal(t, "bob's channel", objectPath.Channel)
+
+			assert.Equal(t, "/'group 1'/'bob''s channel'", objectPath.String())
+		}
+	}
 }

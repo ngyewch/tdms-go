@@ -78,10 +78,37 @@ func ObjectPathFromString(s string) (ObjectPath, error) {
 			}
 			offset++
 			if c == '\'' {
-				parts = append(parts, part)
-				break
+				c2, _, err := r.ReadRune()
+				if err != nil {
+					if err == io.EOF {
+						parts = append(parts, part)
+						break
+					} else {
+						return ObjectPath{}, err
+					}
+				}
+
+				partComplete := false
+				switch c2 {
+				case '/':
+					parts = append(parts, part)
+					partComplete = true
+					err = r.UnreadRune()
+					if err != nil {
+						return ObjectPath{}, err
+					}
+				case '\'':
+					part += string(c)
+				default:
+					return ObjectPath{}, NewInvalidPathError(offset, "invalid character following '")
+				}
+
+				if partComplete {
+					break
+				}
+			} else {
+				part += string(c)
 			}
-			part += string(c)
 		}
 	}
 	switch len(parts) {
@@ -117,9 +144,9 @@ func (path ObjectPath) String() string {
 	if path.IsRoot() {
 		return "/"
 	} else if path.IsGroup() {
-		return "/'" + path.Group + "'"
+		return "/'" + strings.ReplaceAll(path.Group, "'", "''") + "'"
 	} else if path.IsChannel() {
-		return "/'" + path.Group + "'/'" + path.Channel + "'"
+		return "/'" + strings.ReplaceAll(path.Group, "'", "''") + "'/'" + strings.ReplaceAll(path.Channel, "'", "''") + "'"
 	} else {
 		return ""
 	}

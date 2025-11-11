@@ -9,10 +9,13 @@ import (
 )
 
 func doTest(ctx context.Context, cmd *cli.Command) error {
-	tdmsFile, err := tdms.OpenFile(cmd.Args().First())
+	inputFile := cmd.StringArg(inputFileArg.Name)
+
+	tdmsFile, err := tdms.OpenFile(inputFile)
 	if err != nil {
 		return err
 	}
+
 	godump.Dump(tdmsFile.Segments())
 
 	return nil

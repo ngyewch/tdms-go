@@ -11,6 +11,11 @@ import (
 var (
 	version string
 
+	inputFileArg = &cli.StringArg{
+		Name:      "input-file",
+		UsageText: "(input file)",
+	}
+
 	app = &cli.Command{
 		Name:    "tdms-cli",
 		Usage:   "TDMS CLI",
@@ -18,8 +23,11 @@ var (
 		Action:  nil,
 		Commands: []*cli.Command{
 			{
-				Name:   "test",
-				Usage:  "test",
+				Name:  "test",
+				Usage: "test",
+				Arguments: []cli.Argument{
+					inputFileArg,
+				},
 				Action: doTest,
 			},
 		},

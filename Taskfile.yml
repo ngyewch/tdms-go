@@ -13,6 +13,7 @@ tasks:
 
   dependencyUpdates:
     desc: Show dependency updates
+    aliases: [ outdated ]
     cmds:
       - go mod download
       - go mod tidy

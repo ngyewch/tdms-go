@@ -1,5 +1,7 @@
 package tdms
 
+import "fmt"
+
 type DataType uint32
 
 const (
@@ -61,5 +63,56 @@ func (dataType DataType) SizeOf() int {
 		return 16
 	default:
 		return -1
+	}
+}
+
+func (dataType DataType) String() string {
+	switch dataType {
+	case DataTypeVoid:
+		return "Void"
+	case DataTypeI8:
+		return "I8"
+	case DataTypeI16:
+		return "I16"
+	case DataTypeI32:
+		return "I32"
+	case DataTypeI64:
+		return "I64"
+	case DataTypeU8:
+		return "U8"
+	case DataTypeU16:
+		return "U16"
+	case DataTypeU32:
+		return "U32"
+	case DataTypeU64:
+		return "U64"
+	case DataTypeSingleFloat:
+		return "SingleFloat"
+	case DataTypeDoubleFloat:
+		return "DoubleFloat"
+	case DataTypeExtendedFloat:
+		return "ExtendedFloat"
+	case DataTypeSingleFloatWithUnit:
+		return "SingleFloatWithUnit"
+	case DataTypeDoubleFloatWithUnit:
+		return "DoubleFloatWithUnit"
+	case DataTypeExtendedFloatWithUnit:
+		return "ExtendedFloatWithUnit"
+	case DataTypeString:
+		return "String"
+	case DataTypeBoolean:
+		return "Boolean"
+	case DataTypeTimestamp:
+		return "TimeStamp"
+	case DataTypeFixedPoint:
+		return "FixedPoint"
+	case DataTypeComplexSingleFloat:
+		return "ComplexSingleFloat"
+	case DataTypeComplexDoubleFloat:
+		return "ComplexDoubleFloat"
+	case DataTypeDAQmxRawData:
+		return "DAQmxRawData"
+	default:
+		return fmt.Sprintf("DataType<0x%x>", int(dataType))
 	}
 }

@@ -56,6 +56,7 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 	for {
 		var segment Segment
 
+		// NOTE For index files, this is incorrect.
 		segment.Offset, err = file.r.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return err
@@ -74,6 +75,8 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 		} else {
 			// TODO
 		}
+
+		_, err := file.r.Seek(segment.Offset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
 
 		err = handler(&segment)
 		if err != nil {

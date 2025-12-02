@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 const (
@@ -13,6 +14,7 @@ const (
 type File struct {
 	r        io.ReadSeekCloser
 	segments []*Segment
+	mutex    sync.Mutex
 }
 
 type Segment struct {
@@ -45,52 +47,60 @@ func (file *File) Segments() []*Segment {
 	return file.segments
 }
 
-func (file *File) readMetadata() error {
+func (file *File) iterateSegments(handler func(segment *Segment) error) error {
+	_, err := file.r.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
 	for {
-		segment, err := file.nextSegment()
+		var segment Segment
+
+		segment.Offset, err = file.r.Seek(0, io.SeekCurrent)
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
 			return err
 		}
-		if segment == nil {
-			break
+
+		segment.Type, segment.LeadIn, err = readLeadIn(file.r)
+		if err != nil {
+			return err
 		}
-		file.segments = append(file.segments, segment)
+		if segment.LeadIn.ToC.MetaData() {
+			segment.MetaData, err = file.ReadMetaData(segment.LeadIn.ToC)
+			if err != nil {
+				return err
+			}
+			// TODO
+		} else {
+			// TODO
+		}
+
+		err = handler(&segment)
+		if err != nil {
+			return err
+		}
+
+		if segment.Type == SegmentTypeTDSm {
+			_, err = file.r.Seek(segment.Offset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
+			if err != nil {
+				return err
+			}
+		}
 	}
-	return nil
 }
 
-func (file *File) nextSegment() (*Segment, error) {
-	var segment Segment
-	var err error
+func (file *File) readMetadata() error {
+	file.mutex.Lock()
+	defer file.mutex.Unlock()
 
-	segment.Offset, err = file.r.Seek(0, io.SeekCurrent)
-	if err != nil {
-		return nil, err
+	err := file.iterateSegments(func(segment *Segment) error {
+		file.segments = append(file.segments, segment)
+		return nil
+	})
+	if (err != nil) && (err != io.EOF) {
+		return err
 	}
-
-	segment.Type, segment.LeadIn, err = readLeadIn(file.r)
-	if err != nil {
-		return nil, err
-	}
-	if segment.LeadIn.ToC.MetaData() {
-		segment.MetaData, err = file.ReadMetaData(segment.LeadIn.ToC)
-		if err != nil {
-			return nil, err
-		}
-		// TODO
-	} else {
-		// TODO
-	}
-
-	_, err = file.r.Seek(segment.Offset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
-	if err != nil {
-		return nil, err
-	}
-
-	return &segment, nil
+	return nil
 }
 
 const (

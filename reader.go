@@ -53,11 +53,13 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 		return err
 	}
 
+	var fileOffset int64
+	var nextSegmentOffset int64
 	for {
 		var segment Segment
+		segment.Offset = nextSegmentOffset
 
-		// NOTE For index files, this is incorrect.
-		segment.Offset, err = file.r.Seek(0, io.SeekCurrent)
+		fileOffset, err = file.r.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return err
 		}
@@ -76,15 +78,19 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 			// TODO
 		}
 
-		_, err := file.r.Seek(segment.Offset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
+		_, err := file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
+		if err != nil {
+			return err
+		}
 
 		err = handler(&segment)
 		if err != nil {
 			return err
 		}
 
+		nextSegmentOffset = segment.Offset + int64(segment.LeadIn.NextSegmentOffset) + leadInByteLength
 		if segment.Type == SegmentTypeTDSm {
-			_, err = file.r.Seek(segment.Offset+int64(segment.LeadIn.NextSegmentOffset)+leadInByteLength, io.SeekStart)
+			_, err = file.r.Seek(nextSegmentOffset, io.SeekStart)
 			if err != nil {
 				return err
 			}

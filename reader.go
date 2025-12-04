@@ -49,6 +49,7 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 
 	var fileOffset int64
 	var nextSegmentOffset int64
+	var previousSegment *Segment
 	for {
 		var segment Segment
 		segment.Offset = nextSegmentOffset
@@ -63,7 +64,7 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 			return err
 		}
 		if segment.LeadIn.ToC.MetaData() {
-			segment.MetaData, err = file.ReadMetaData(segment.LeadIn.ToC)
+			segment.MetaData, err = ReadMetaData(file.r, segment.LeadIn.ToC, previousSegment)
 			if err != nil {
 				return err
 			}
@@ -86,6 +87,8 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 				return err
 			}
 		}
+
+		previousSegment = &segment
 	}
 }
 
@@ -146,99 +149,4 @@ type Group struct {
 }
 
 type Channel struct {
-}
-
-func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
-	valueReader := toc.ValueReader()
-	// TODO handle NewObjList
-	metadata := NewMetaData()
-	numberOfObjects, err := valueReader.ReadU32(file.r)
-	if err != nil {
-		return nil, err
-	}
-	for i := 0; i < int(numberOfObjects); i++ {
-		var object Object
-		object.Path, err = valueReader.ReadString(file.r)
-		if err != nil {
-			return nil, err
-		}
-		rawDataIndexType, err := valueReader.ReadU32(file.r)
-		if err != nil {
-			return nil, err
-		}
-		if rawDataIndexType == NoRawData {
-			// no raw data assigned
-		} else if toc.DAQmxRawData() {
-			if rawDataIndexType == DAQmxFormatChangingScalerType {
-				var daQmxRawDataIndex DAQmxRawDataIndex
-				object.RawDataIndex = &daQmxRawDataIndex
-				daQmxRawDataIndex.DataType, err = valueReader.ReadDataType(file.r)
-				if err != nil {
-					return nil, err
-				}
-				daQmxRawDataIndex.ArrayDimension, err = valueReader.ReadU32(file.r)
-				if err != nil {
-					return nil, err
-				}
-				daQmxRawDataIndex.ChunkSize, err = valueReader.ReadU64(file.r)
-				if err != nil {
-					return nil, err
-				}
-				scalerVectorSize, err := valueReader.ReadU32(file.r)
-				if err != nil {
-					return nil, err
-				}
-				for i := 0; i < int(scalerVectorSize); i++ {
-					scaler, err := readDAQmxFormatChangingScaler(file.r, valueReader)
-					if err != nil {
-						return nil, err
-					}
-					daQmxRawDataIndex.Scalers = append(daQmxRawDataIndex.Scalers, scaler)
-				}
-				rawDataWidthVectorSize, err := valueReader.ReadU32(file.r)
-				if err != nil {
-					return nil, err
-				}
-				for i := 0; i < int(rawDataWidthVectorSize); i++ {
-					rawDataWidth, err := valueReader.ReadU32(file.r)
-					if err != nil {
-						return nil, err
-					}
-					daQmxRawDataIndex.RawDataWidths = append(daQmxRawDataIndex.RawDataWidths, rawDataWidth)
-				}
-			} else if rawDataIndexType == DAQmxDigitalLineScalerType {
-				// TODO
-				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
-			} else {
-				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
-			}
-		} else {
-			// TODO
-			return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
-		}
-
-		object.Properties = make(map[string]any)
-		numberOfProperties, err := valueReader.ReadU32(file.r)
-		if err != nil {
-			return nil, err
-		}
-		for j := 0; j < int(numberOfProperties); j++ {
-			propertyName, err := valueReader.ReadString(file.r)
-			if err != nil {
-				return nil, err
-			}
-			propertyValue, err := valueReader.ReadValue(file.r)
-			if err != nil {
-				return nil, err
-			}
-			object.Properties[propertyName] = propertyValue
-		}
-
-		err = metadata.AddObject(&object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return metadata, nil
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"sync"
 )
 
@@ -73,9 +74,6 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 			if err != nil {
 				return err
 			}
-			// TODO
-		} else {
-			// TODO
 		}
 
 		_, err := file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
@@ -102,13 +100,46 @@ func (file *File) readMetadata() error {
 	file.mutex.Lock()
 	defer file.mutex.Unlock()
 
+	objectMap := make(map[string]*Object)
 	err := file.iterateSegments(func(segment *Segment) error {
+		fmt.Println()
+		for _, object1 := range segment.MetaData.Objects {
+			object0, ok := objectMap[object1.Path]
+			if ok {
+				for name, value := range object1.Properties {
+					object0.Properties[name] = value
+				}
+			} else {
+				objectMap[object1.Path] = object1
+			}
+		}
 		file.segments = append(file.segments, segment)
 		return nil
 	})
 	if (err != nil) && (err != io.EOF) {
 		return err
 	}
+
+	var paths []string
+	for path := range objectMap {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	for _, path := range paths {
+		object := objectMap[path]
+		fmt.Println()
+		fmt.Println(object.Path)
+		fmt.Println("- Properties:")
+		var names []string
+		for name := range object.Properties {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			fmt.Printf("  - %s: %v\n", name, object.Properties[name])
+		}
+	}
+
 	return nil
 }
 

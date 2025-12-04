@@ -18,13 +18,6 @@ type File struct {
 	mutex    sync.Mutex
 }
 
-type Segment struct {
-	Type     SegmentType
-	LeadIn   *LeadIn
-	MetaData *MetaData
-	Offset   int64
-}
-
 func OpenFile(path string) (*File, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -103,7 +96,7 @@ func (file *File) readMetadata() error {
 	objectMap := make(map[string]*Object)
 	err := file.iterateSegments(func(segment *Segment) error {
 		fmt.Println()
-		for _, object1 := range segment.MetaData.Objects {
+		for _, object1 := range segment.MetaData.objects {
 			object0, ok := objectMap[object1.Path]
 			if ok {
 				for name, value := range object1.Properties {
@@ -149,36 +142,16 @@ const (
 	DAQmxDigitalLineScalerType    = 0x0000126a
 )
 
-type MetaData struct {
-	Objects []*Object
-}
-
 type Group struct {
 }
 
 type Channel struct {
 }
 
-type Object struct {
-	Path         string
-	RawDataIndex uint32
-	V            any
-	// TODO
-	Properties map[string]any
-}
-
-type DAQmxRawDataIndex struct {
-	DataType       DataType
-	ArrayDimension uint32
-	ChunkSize      uint64
-	Scalers        []*DAQmxFormatChangingScaler
-	RawDataWidths  []uint32
-}
-
 func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 	valueReader := toc.ValueReader()
 	// TODO handle NewObjList
-	var metadata MetaData
+	metadata := NewMetaData()
 	numberOfObjects, err := valueReader.ReadU32(file.r)
 	if err != nil {
 		return nil, err
@@ -189,17 +162,16 @@ func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 		if err != nil {
 			return nil, err
 		}
-		object.RawDataIndex, err = valueReader.ReadU32(file.r)
+		rawDataIndexType, err := valueReader.ReadU32(file.r)
 		if err != nil {
 			return nil, err
 		}
-		if object.RawDataIndex == NoRawData {
+		if rawDataIndexType == NoRawData {
 			// no raw data assigned
 		} else if toc.DAQmxRawData() {
-			if object.RawDataIndex == DAQmxFormatChangingScalerType {
+			if rawDataIndexType == DAQmxFormatChangingScalerType {
 				var daQmxRawDataIndex DAQmxRawDataIndex
-				object.V = &daQmxRawDataIndex
-
+				object.RawDataIndex = &daQmxRawDataIndex
 				daQmxRawDataIndex.DataType, err = valueReader.ReadDataType(file.r)
 				if err != nil {
 					return nil, err
@@ -234,14 +206,15 @@ func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 					}
 					daQmxRawDataIndex.RawDataWidths = append(daQmxRawDataIndex.RawDataWidths, rawDataWidth)
 				}
-			} else if object.RawDataIndex == DAQmxDigitalLineScalerType {
+			} else if rawDataIndexType == DAQmxDigitalLineScalerType {
 				// TODO
-				return nil, fmt.Errorf("unsupported rawDataIndex: 0x%08x", object.RawDataIndex)
+				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
 			} else {
-				return nil, fmt.Errorf("unsupported rawDataIndex: 0x%08x", object.RawDataIndex)
+				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
 			}
 		} else {
 			// TODO
+			return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
 		}
 
 		object.Properties = make(map[string]any)
@@ -261,8 +234,11 @@ func (file *File) ReadMetaData(toc TableOfContents) (*MetaData, error) {
 			object.Properties[propertyName] = propertyValue
 		}
 
-		metadata.Objects = append(metadata.Objects, &object)
+		err = metadata.AddObject(&object)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &metadata, nil
+	return metadata, nil
 }

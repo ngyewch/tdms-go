@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/goforj/godump"
 	"github.com/ngyewch/tdms-go"
 	"github.com/urfave/cli/v3"
 )
@@ -17,9 +16,24 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	fmt.Println(tdmsFile)
-	if false {
-		godump.Dump(tdmsFile.Segments())
+	fmt.Println("/")
+	tdmsFile.Root().Properties().All()(func(name string, value any) bool {
+		fmt.Printf("  * %s: %v\n", name, value)
+		return true
+	})
+	for _, group := range tdmsFile.Root().Children() {
+		fmt.Printf("- %s\n", group.Name())
+		group.Properties().All()(func(name string, value any) bool {
+			fmt.Printf("    * %s: %v\n", name, value)
+			return true
+		})
+		for _, channel := range group.Children() {
+			fmt.Printf("  - %s\n", channel.Name())
+			channel.Properties().All()(func(name string, value any) bool {
+				fmt.Printf("      * %s: %v\n", name, value)
+				return true
+			})
+		}
 	}
 
 	return nil

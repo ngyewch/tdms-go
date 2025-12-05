@@ -13,6 +13,7 @@ const (
 
 type File struct {
 	r        io.ReadSeekCloser
+	root     *Node
 	segments []*Segment
 	mutex    sync.Mutex
 }
@@ -34,6 +35,10 @@ func OpenFile(path string) (*File, error) {
 
 func (file *File) Close() error {
 	return file.r.Close()
+}
+
+func (file *File) Root() *Node {
+	return file.root
 }
 
 func (file *File) Segments() []*Segment {
@@ -140,17 +145,7 @@ func (file *File) readMetadata() error {
 		return err
 	}
 
-	for _, group := range root.Children() {
-		fmt.Printf("%s\n", group.Name())
-		for _, channel := range group.Children() {
-			fmt.Printf("- %s\n", channel.Name())
-			seq := channel.Properties().All()
-			seq(func(name string, value any) bool {
-				fmt.Printf("  - %s: %v\n", name, value)
-				return true
-			})
-		}
-	}
+	file.root = root
 
 	return nil
 }

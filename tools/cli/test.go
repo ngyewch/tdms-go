@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/goforj/godump"
 	"github.com/ngyewch/tdms-go"
@@ -16,7 +17,10 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	godump.Dump(tdmsFile.Segments())
+	fmt.Println(tdmsFile)
+	if false {
+		godump.Dump(tdmsFile.Segments())
+	}
 
 	return nil
 }

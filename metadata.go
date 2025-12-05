@@ -1,6 +1,7 @@
 package tdms
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 )
@@ -54,6 +55,11 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 		}
 		if rawDataIndexType == RawDataIndexTypeNoRawData {
 			// no raw data assigned
+		} else if rawDataIndexType == RawDataIndexTypeSameAsPreviousSegment {
+			if previousSegment != nil {
+				return nil, fmt.Errorf("no previous segment found")
+			}
+			// TODO
 		} else if toc.DAQmxRawData() {
 			if rawDataIndexType == RawDataIndexTypeDAQmxFormatChangingScalerType {
 				object.RawDataIndex, err = ReadDAQmxRawDataIndex(r, valueReader)
@@ -67,8 +73,16 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
 			}
 		} else {
-			// TODO
-			return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
+			rawDataIndexBytes := make([]byte, rawDataIndexType)
+			_, err = r.Read(rawDataIndexBytes)
+			if err != nil {
+				return nil, err
+			}
+			rawDataIndexReader := bytes.NewReader(rawDataIndexBytes)
+			object.RawDataIndex, err = ReadDefaultRawDataIndex(rawDataIndexReader, valueReader)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		object.Properties = make(map[string]any)

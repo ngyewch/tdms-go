@@ -13,6 +13,7 @@ type RawDataIndex interface {
 	GetDataType() DataType
 	GetArrayDimension() uint32
 	GetChunkSize() uint64
+	GetTotalSizeInBytes() uint64
 	isRawDataIndex() bool
 }
 
@@ -37,6 +38,13 @@ func (index DefaultRawDataIndex) GetArrayDimension() uint32 {
 
 func (index DefaultRawDataIndex) GetChunkSize() uint64 {
 	return index.ChunkSize
+}
+
+func (index DefaultRawDataIndex) GetTotalSizeInBytes() uint64 {
+	if index.TotalSizeInBytes > 0 {
+		return index.TotalSizeInBytes
+	}
+	return uint64(index.DataType.SizeOf()) * uint64(index.ArrayDimension) * index.ChunkSize
 }
 
 func ReadDefaultRawDataIndex(r io.Reader, valueReader *ValueReader) (*DefaultRawDataIndex, error) {

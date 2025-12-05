@@ -28,6 +28,14 @@ func (index DAQmxRawDataIndex) GetChunkSize() uint64 {
 	return index.ChunkSize
 }
 
+func (index DAQmxRawDataIndex) GetTotalSizeInBytes() uint64 {
+	var totalRawDataWidth uint64
+	for _, rawDataWidth := range index.RawDataWidths {
+		totalRawDataWidth += uint64(rawDataWidth)
+	}
+	return totalRawDataWidth * uint64(index.ArrayDimension) * index.ChunkSize
+}
+
 type DAQmxFormatChangingScaler struct {
 	DataType                     DataType
 	RawBufferIndex               uint32

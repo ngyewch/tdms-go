@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/goforj/godump"
 )
 
 type MetaData struct {
@@ -36,6 +38,7 @@ func (m *MetaData) GetObjectByPath(path string) *Object {
 }
 
 func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*MetaData, error) {
+	fmt.Printf("toc.InterleavedData: %v\n", toc.InterleavedData())
 	valueReader := toc.ValueReader()
 	// TODO handle NewObjList
 	metadata := NewMetaData()
@@ -90,6 +93,12 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			if err != nil {
 				return nil, err
 			}
+		}
+
+		if object.RawDataIndex != nil {
+			fmt.Printf("* %s -> %d [%s]\n", object.Path, object.RawDataIndex.GetTotalSizeInBytes(), object.RawDataIndex.GetDataType().String())
+			fmt.Printf("  * %+v\n", object.RawDataIndex)
+			godump.Dump(object.RawDataIndex)
 		}
 
 		object.Properties = make(map[string]any)

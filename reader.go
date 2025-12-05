@@ -12,10 +12,9 @@ const (
 )
 
 type File struct {
-	r        io.ReadSeekCloser
-	root     *Node
-	segments []*Segment
-	mutex    sync.Mutex
+	r     io.ReadSeekCloser
+	root  *Node
+	mutex sync.Mutex
 }
 
 func OpenFile(path string) (*File, error) {
@@ -41,10 +40,6 @@ func (file *File) Root() *Node {
 	return file.root
 }
 
-func (file *File) Segments() []*Segment {
-	return file.segments
-}
-
 func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 	_, err := file.r.Seek(0, io.SeekStart)
 	if err != nil {
@@ -65,6 +60,8 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 			return err
 		}
 		segment.Offset = nextSegmentOffset
+
+		fmt.Printf("segment rawDataSizeInBytes: %d\n", segment.LeadIn.NextSegmentOffset-segment.LeadIn.RawDataOffset)
 
 		_, err = file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
 		if err != nil {
@@ -138,7 +135,6 @@ func (file *File) readMetadata() error {
 				}
 			}
 		}
-		file.segments = append(file.segments, segment)
 		return nil
 	})
 	if (err != nil) && (err != io.EOF) {
@@ -147,5 +143,26 @@ func (file *File) readMetadata() error {
 
 	file.root = root
 
+	return nil
+}
+
+func (file *File) ReadChannelData(path string) error {
+	err := file.iterateSegments(func(segment *Segment) error {
+		if !segment.LeadIn.ToC.RawData() {
+			return nil
+		}
+		if segment.MetaData == nil {
+			return nil
+		}
+		object := segment.MetaData.GetObjectByPath(path)
+		if object == nil {
+			return nil
+		}
+		// TODO
+		return nil
+	})
+	if err != nil {
+		return err
+	}
 	return nil
 }

@@ -29,27 +29,3 @@ func (index DefaultRawDataIndex) GetArrayDimension() uint32 {
 func (index DefaultRawDataIndex) GetChunkSize() uint64 {
 	return index.ChunkSize
 }
-
-type DAQmxRawDataIndex struct {
-	DataType       DataType
-	ArrayDimension uint32
-	ChunkSize      uint64
-	Scalers        []*DAQmxFormatChangingScaler
-	RawDataWidths  []uint32
-}
-
-func (index DAQmxRawDataIndex) isRawDataIndex() bool {
-	return true
-}
-
-func (index DAQmxRawDataIndex) GetDataType() DataType {
-	return index.DataType
-}
-
-func (index DAQmxRawDataIndex) GetArrayDimension() uint32 {
-	return index.ArrayDimension
-}
-
-func (index DAQmxRawDataIndex) GetChunkSize() uint64 {
-	return index.ChunkSize
-}

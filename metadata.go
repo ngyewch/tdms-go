@@ -56,41 +56,9 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			// no raw data assigned
 		} else if toc.DAQmxRawData() {
 			if rawDataIndexType == DAQmxFormatChangingScalerType {
-				var daQmxRawDataIndex DAQmxRawDataIndex
-				object.RawDataIndex = &daQmxRawDataIndex
-				daQmxRawDataIndex.DataType, err = valueReader.ReadDataType(r)
+				object.RawDataIndex, err = ReadDAQmxRawDataIndex(r, valueReader)
 				if err != nil {
 					return nil, err
-				}
-				daQmxRawDataIndex.ArrayDimension, err = valueReader.ReadU32(r)
-				if err != nil {
-					return nil, err
-				}
-				daQmxRawDataIndex.ChunkSize, err = valueReader.ReadU64(r)
-				if err != nil {
-					return nil, err
-				}
-				scalerVectorSize, err := valueReader.ReadU32(r)
-				if err != nil {
-					return nil, err
-				}
-				for i := 0; i < int(scalerVectorSize); i++ {
-					scaler, err := readDAQmxFormatChangingScaler(r, valueReader)
-					if err != nil {
-						return nil, err
-					}
-					daQmxRawDataIndex.Scalers = append(daQmxRawDataIndex.Scalers, scaler)
-				}
-				rawDataWidthVectorSize, err := valueReader.ReadU32(r)
-				if err != nil {
-					return nil, err
-				}
-				for i := 0; i < int(rawDataWidthVectorSize); i++ {
-					rawDataWidth, err := valueReader.ReadU32(r)
-					if err != nil {
-						return nil, err
-					}
-					daQmxRawDataIndex.RawDataWidths = append(daQmxRawDataIndex.RawDataWidths, rawDataWidth)
 				}
 			} else if rawDataIndexType == DAQmxDigitalLineScalerType {
 				// TODO

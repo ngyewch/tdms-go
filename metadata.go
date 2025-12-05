@@ -56,10 +56,17 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 		if rawDataIndexType == RawDataIndexTypeNoRawData {
 			// no raw data assigned
 		} else if rawDataIndexType == RawDataIndexTypeSameAsPreviousSegment {
-			if previousSegment != nil {
+			if previousSegment == nil {
 				return nil, fmt.Errorf("no previous segment found")
 			}
-			// TODO
+			if previousSegment.MetaData == nil {
+				return nil, fmt.Errorf("previous segment does not have metadata")
+			}
+			previousObject := previousSegment.MetaData.GetObjectByPath(object.Path)
+			if previousObject == nil {
+				return nil, fmt.Errorf("previous segment does not contain %s", object.Path)
+			}
+			object.RawDataIndex = previousObject.RawDataIndex
 		} else if toc.DAQmxRawData() {
 			if rawDataIndexType == RawDataIndexTypeDAQmxFormatChangingScalerType {
 				object.RawDataIndex, err = ReadDAQmxRawDataIndex(r, valueReader)

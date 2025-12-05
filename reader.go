@@ -4,10 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sort"
 	"sync"
-
-	"github.com/egregors/sortedmap"
 )
 
 const (
@@ -90,17 +87,50 @@ func (file *File) readMetadata() error {
 	file.mutex.Lock()
 	defer file.mutex.Unlock()
 
-	objectMap := make(map[string]*Object)
+	var root *Node
 	err := file.iterateSegments(func(segment *Segment) error {
-		fmt.Println()
-		for _, object1 := range segment.MetaData.objects {
-			object0, ok := objectMap[object1.Path]
-			if ok {
-				for name, value := range object1.Properties {
-					object0.Properties[name] = value
+		for _, object := range segment.MetaData.objects {
+			objectPath, err := ObjectPathFromString(object.Path)
+			if err != nil {
+				return err
+			}
+			if objectPath.IsRoot() {
+				if root == nil {
+					root = NewNode("", object.Path)
 				}
-			} else {
-				objectMap[object1.Path] = object1
+				for name, value := range object.Properties {
+					root.Properties().Insert(name, value)
+				}
+				continue
+			}
+			if objectPath.Group == "" {
+				return fmt.Errorf("group name is empty")
+			}
+			if root == nil {
+				return fmt.Errorf("root not defined")
+			}
+			if objectPath.IsGroup() {
+				group := root.GetChildByName(objectPath.Group)
+				if group == nil {
+					group = NewNode(objectPath.Group, object.Path)
+					root.AddChild(group)
+				}
+				for name, value := range object.Properties {
+					group.Properties().Insert(name, value)
+				}
+			} else if objectPath.IsChannel() {
+				group := root.GetChildByName(objectPath.Group)
+				if group == nil {
+					return fmt.Errorf("group not defined")
+				}
+				channel := group.GetChildByName(objectPath.Channel)
+				if channel == nil {
+					channel = NewNode(objectPath.Channel, object.Path)
+					group.AddChild(channel)
+				}
+				for name, value := range object.Properties {
+					channel.Properties().Insert(name, value)
+				}
 			}
 		}
 		file.segments = append(file.segments, segment)
@@ -110,170 +140,17 @@ func (file *File) readMetadata() error {
 		return err
 	}
 
-	root := NewRoot()
-	for path := range objectMap {
-		objectPath, err := ObjectPathFromString(path)
-		if err != nil {
-			return err
-		}
-		if objectPath.IsRoot() || (objectPath.Group == "") {
-			continue
-		}
-		group := root.Group(objectPath.Group)
-		if group == nil {
-			group = NewGroup(objectPath.Group)
-			root.AddGroup(group)
-		}
-		if objectPath.Channel != "" {
-			channel := group.Channel(objectPath.Channel)
-			if channel == nil {
-				channel = NewChannel(objectPath.Channel)
-				group.AddChannel(channel)
-			}
-		}
-	}
-	for _, group := range root.Groups() {
+	for _, group := range root.Children() {
 		fmt.Printf("%s\n", group.Name())
-		for _, channel := range group.Channels() {
-			fmt.Printf("  %s\n", channel.Name())
-		}
-	}
-
-	if false {
-		var paths []string
-		for path := range objectMap {
-			paths = append(paths, path)
-		}
-		sort.Strings(paths)
-		for _, path := range paths {
-			object := objectMap[path]
-			fmt.Println()
-			fmt.Println(object.Path)
-			fmt.Println("- Properties:")
-			var names []string
-			for name := range object.Properties {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			for _, name := range names {
-				fmt.Printf("  - %s: %v\n", name, object.Properties[name])
-			}
+		for _, channel := range group.Children() {
+			fmt.Printf("- %s\n", channel.Name())
+			seq := channel.Properties().All()
+			seq(func(name string, value any) bool {
+				fmt.Printf("  - %s: %v\n", name, value)
+				return true
+			})
 		}
 	}
 
 	return nil
-}
-
-type Node[T any] struct {
-	name     string
-	path     string
-	childMap *sortedmap.SortedMap[map[string]T, string, T]
-}
-
-func NewNode[T any](name string, path string) *Node[T] {
-	return &Node[T]{
-		name: name,
-		path: path,
-		childMap: sortedmap.New[map[string]T, string, T](func(i, j sortedmap.KV[string, T]) bool {
-			return i.Key < j.Key
-		}),
-	}
-}
-
-func (node *Node[T]) Name() string {
-	return node.name
-}
-
-func (node *Node[T]) Path(name string) string {
-	return node.path
-}
-
-func (node *Node[T]) Children() []T {
-	return node.childMap.CollectValues()
-}
-
-func (node *Node[T]) GetChildByName(name string) T {
-	child, _ := node.childMap.Get(name)
-	return child
-}
-
-func (node *Node[T]) AddChild(name string, child T) {
-	node.childMap.Insert(name, child)
-}
-
-type Root struct {
-	groupMap *sortedmap.SortedMap[map[string]*Group, string, *Group]
-}
-
-func NewRoot() *Root {
-	return &Root{
-		groupMap: sortedmap.New[map[string]*Group, string, *Group](func(i, j sortedmap.KV[string, *Group]) bool {
-			return i.Key < j.Key
-		}),
-	}
-}
-
-func (root *Root) Groups() []*Group {
-	return root.groupMap.CollectValues()
-}
-
-func (root *Root) Group(name string) *Group {
-	group, _ := root.groupMap.Get(name)
-	return group
-}
-
-func (root *Root) AddGroup(group *Group) {
-	root.groupMap.Insert(group.Name(), group)
-}
-
-type Group struct {
-	object     *Object
-	name       string
-	channelMap *sortedmap.SortedMap[map[string]*Channel, string, *Channel]
-}
-
-func NewGroup(name string) *Group {
-	return &Group{
-		name: name,
-		channelMap: sortedmap.New[map[string]*Channel, string, *Channel](func(i, j sortedmap.KV[string, *Channel]) bool {
-			return i.Key < j.Key
-		}),
-	}
-}
-
-func (group *Group) Name() string {
-	return group.name
-}
-
-func (group *Group) Channels() []*Channel {
-	return group.channelMap.CollectValues()
-}
-
-func (group *Group) Channel(name string) *Channel {
-	channel, _ := group.channelMap.Get(name)
-	return channel
-}
-
-func (group *Group) AddChannel(channel *Channel) {
-	group.channelMap.Insert(channel.Name(), channel)
-}
-
-type Channel struct {
-	name       string
-	properties map[string]any
-}
-
-func NewChannel(name string) *Channel {
-	return &Channel{
-		name:       name,
-		properties: make(map[string]any),
-	}
-}
-
-func (channel *Channel) Name() string {
-	return channel.name
-}
-
-func (channel *Channel) Properties() map[string]any {
-	return channel.properties
 }

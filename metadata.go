@@ -52,15 +52,15 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 		if err != nil {
 			return nil, err
 		}
-		if rawDataIndexType == NoRawData {
+		if rawDataIndexType == RawDataIndexTypeNoRawData {
 			// no raw data assigned
 		} else if toc.DAQmxRawData() {
-			if rawDataIndexType == DAQmxFormatChangingScalerType {
+			if rawDataIndexType == RawDataIndexTypeDAQmxFormatChangingScalerType {
 				object.RawDataIndex, err = ReadDAQmxRawDataIndex(r, valueReader)
 				if err != nil {
 					return nil, err
 				}
-			} else if rawDataIndexType == DAQmxDigitalLineScalerType {
+			} else if rawDataIndexType == RawDataIndexTypeDAQmxDigitalLineScalerType {
 				// TODO
 				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
 			} else {

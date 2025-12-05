@@ -51,31 +51,23 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 	var nextSegmentOffset int64
 	var previousSegment *Segment
 	for {
-		var segment Segment
-		segment.Offset = nextSegmentOffset
-
 		fileOffset, err = file.r.Seek(0, io.SeekCurrent)
 		if err != nil {
 			return err
 		}
 
-		segment.Type, segment.LeadIn, err = readLeadIn(file.r)
+		segment, err := ReadSegment(file.r, previousSegment)
 		if err != nil {
 			return err
 		}
-		if segment.LeadIn.ToC.MetaData() {
-			segment.MetaData, err = ReadMetaData(file.r, segment.LeadIn.ToC, previousSegment)
-			if err != nil {
-				return err
-			}
-		}
+		segment.Offset = nextSegmentOffset
 
-		_, err := file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
+		_, err = file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
 		if err != nil {
 			return err
 		}
 
-		err = handler(&segment)
+		err = handler(segment)
 		if err != nil {
 			return err
 		}
@@ -88,7 +80,7 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 			}
 		}
 
-		previousSegment = &segment
+		previousSegment = segment
 	}
 }
 
@@ -138,12 +130,6 @@ func (file *File) readMetadata() error {
 
 	return nil
 }
-
-const (
-	NoRawData                     = 0xffffffff
-	DAQmxFormatChangingScalerType = 0x00001269
-	DAQmxDigitalLineScalerType    = 0x0000126a
-)
 
 type Group struct {
 }

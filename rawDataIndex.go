@@ -1,5 +1,12 @@
 package tdms
 
+const (
+	RawDataIndexTypeSameAsPreviousSegment         = 0x00000000
+	RawDataIndexTypeNoRawData                     = 0xffffffff
+	RawDataIndexTypeDAQmxFormatChangingScalerType = 0x00001269
+	RawDataIndexTypeDAQmxDigitalLineScalerType    = 0x0000126a
+)
+
 type RawDataIndex interface {
 	GetDataType() DataType
 	GetArrayDimension() uint32

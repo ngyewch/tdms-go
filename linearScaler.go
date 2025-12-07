@@ -2,7 +2,6 @@ package tdms
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/ngyewch/tdms-go/utils"
 )
@@ -36,10 +35,10 @@ func NewLinearScaler(props map[string]any) (*LinearScaler, error) {
 	}, nil
 }
 
-func (scaler *LinearScaler) Scale(v any) float64 {
+func (scaler *LinearScaler) Scale(v any) (float64, error) {
 	n, err := utils.AsFloat64(v)
 	if err != nil {
-		return math.NaN()
+		return 0, err
 	}
-	return (n * scaler.LinearSlope) + scaler.LinearYIntercept
+	return (n * scaler.LinearSlope) + scaler.LinearYIntercept, nil
 }

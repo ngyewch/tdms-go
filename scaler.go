@@ -1,5 +1,5 @@
 package tdms
 
 type Scaler interface {
-	Scale(v any) float64
+	Scale(v any) (float64, error)
 }

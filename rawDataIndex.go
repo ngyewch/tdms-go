@@ -14,7 +14,7 @@ type RawDataIndex interface {
 	GetArrayDimension() uint32
 	GetChunkSize() uint64
 	GetTotalSizeInBytes() uint64
-	isRawDataIndex() bool
+	PopulateScalers(scalers []Scaler)
 }
 
 type DefaultRawDataIndex struct {
@@ -24,27 +24,27 @@ type DefaultRawDataIndex struct {
 	TotalSizeInBytes uint64
 }
 
-func (index DefaultRawDataIndex) isRawDataIndex() bool {
-	return true
-}
-
-func (index DefaultRawDataIndex) GetDataType() DataType {
+func (index *DefaultRawDataIndex) GetDataType() DataType {
 	return index.DataType
 }
 
-func (index DefaultRawDataIndex) GetArrayDimension() uint32 {
+func (index *DefaultRawDataIndex) GetArrayDimension() uint32 {
 	return index.ArrayDimension
 }
 
-func (index DefaultRawDataIndex) GetChunkSize() uint64 {
+func (index *DefaultRawDataIndex) GetChunkSize() uint64 {
 	return index.ChunkSize
 }
 
-func (index DefaultRawDataIndex) GetTotalSizeInBytes() uint64 {
+func (index *DefaultRawDataIndex) GetTotalSizeInBytes() uint64 {
 	if index.TotalSizeInBytes > 0 {
 		return index.TotalSizeInBytes
 	}
 	return uint64(index.DataType.SizeOf()) * uint64(index.ArrayDimension) * index.ChunkSize
+}
+
+func (index *DefaultRawDataIndex) PopulateScalers(scalers []Scaler) {
+	// do nothing
 }
 
 func ReadDefaultRawDataIndex(r io.Reader, valueReader *ValueReader) (*DefaultRawDataIndex, error) {

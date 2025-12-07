@@ -1,6 +1,7 @@
 package tdms
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -36,4 +37,8 @@ func ReadDAQmxFormatChangingScaler(r io.Reader, valueReader *ValueReader) (*DAQm
 		return nil, err
 	}
 	return &scaler, nil
+}
+
+func (scaler *DAQmxFormatChangingScaler) Scale(v any) (float64, error) {
+	return 0, fmt.Errorf("DAQmxFormatChangingScaler.Scale not implemented")
 }

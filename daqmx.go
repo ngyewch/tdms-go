@@ -12,28 +12,30 @@ type DAQmxRawDataIndex struct {
 	RawDataWidths  []uint32
 }
 
-func (index DAQmxRawDataIndex) isRawDataIndex() bool {
-	return true
-}
-
-func (index DAQmxRawDataIndex) GetDataType() DataType {
+func (index *DAQmxRawDataIndex) GetDataType() DataType {
 	return index.DataType
 }
 
-func (index DAQmxRawDataIndex) GetArrayDimension() uint32 {
+func (index *DAQmxRawDataIndex) GetArrayDimension() uint32 {
 	return index.ArrayDimension
 }
 
-func (index DAQmxRawDataIndex) GetChunkSize() uint64 {
+func (index *DAQmxRawDataIndex) GetChunkSize() uint64 {
 	return index.ChunkSize
 }
 
-func (index DAQmxRawDataIndex) GetTotalSizeInBytes() uint64 {
+func (index *DAQmxRawDataIndex) GetTotalSizeInBytes() uint64 {
 	var totalRawDataWidth uint64
 	for _, rawDataWidth := range index.RawDataWidths {
 		totalRawDataWidth += uint64(rawDataWidth)
 	}
 	return totalRawDataWidth * uint64(index.ArrayDimension) * index.ChunkSize
+}
+
+func (index *DAQmxRawDataIndex) PopulateScalers(scalers []Scaler) {
+	for _, indexScaler := range index.Scalers {
+		scalers[indexScaler.ScaleId] = indexScaler
+	}
 }
 
 func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawDataIndex, error) {

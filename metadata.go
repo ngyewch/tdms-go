@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/goforj/godump"
 )
 
 type MetaData struct {
@@ -109,10 +111,16 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			object.Properties[propertyName] = propertyValue
 		}
 
-		_, err = GetScalers(object.Properties)
+		scalers, err := GetScalers(object.Properties)
 		if err != nil {
 			return nil, err
 		}
+
+		if object.RawDataIndex != nil {
+			object.RawDataIndex.PopulateScalers(scalers)
+		}
+		fmt.Println(object.Path)
+		godump.Dump(scalers)
 
 		err = metadata.AddObject(&object)
 		if err != nil {

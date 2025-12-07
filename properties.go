@@ -17,6 +17,18 @@ func getInt(props map[string]any, name string) (int, bool, error) {
 	return n, true, nil
 }
 
+func getUint(props map[string]any, name string) (uint, bool, error) {
+	v, exists := props[name]
+	if !exists {
+		return 0, false, nil
+	}
+	n, err := asUint(v)
+	if err != nil {
+		return 0, true, err
+	}
+	return n, true, nil
+}
+
 func getFloat64(props map[string]any, name string) (float64, bool, error) {
 	v, exists := props[name]
 	if !exists {
@@ -79,6 +91,33 @@ func asInt(v any) (int, error) {
 		return int(v1), nil
 	default:
 		return 0, fmt.Errorf("cannot convert %v to int", v)
+	}
+}
+
+func asUint(v any) (uint, error) {
+	switch v1 := v.(type) {
+	case int:
+		return uint(v1), nil
+	case uint:
+		return v1, nil
+	case int8:
+		return uint(v1), nil
+	case uint8:
+		return uint(v1), nil
+	case int16:
+		return uint(v1), nil
+	case uint16:
+		return uint(v1), nil
+	case int32:
+		return uint(v1), nil
+	case uint32:
+		return uint(v1), nil
+	case int64:
+		return uint(v1), nil
+	case uint64:
+		return uint(v1), nil
+	default:
+		return 0, fmt.Errorf("cannot convert %v to uint", v)
 	}
 }
 

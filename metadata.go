@@ -109,6 +109,11 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			object.Properties[propertyName] = propertyValue
 		}
 
+		_, err = GetScalers(object.Properties)
+		if err != nil {
+			return nil, err
+		}
+
 		err = metadata.AddObject(&object)
 		if err != nil {
 			return nil, err

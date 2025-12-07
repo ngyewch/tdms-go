@@ -16,7 +16,7 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	if true {
+	if false {
 		fmt.Println("/")
 		tdmsFile.Root().Properties().All()(func(name string, value any) bool {
 			fmt.Printf("  * %s: %v [%T]\n", name, value, value)

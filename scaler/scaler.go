@@ -1,9 +1,10 @@
-package tdms
+package scaler
 
 import (
 	"fmt"
-	"math"
 	"strings"
+
+	"github.com/ngyewch/tdms-go/utils"
 )
 
 type ScalingStatus string
@@ -17,45 +18,8 @@ type Scaler interface {
 	Scale(v any) float64
 }
 
-type LinearScaler struct {
-	LinearInputSource uint
-	LinearSlope       float64
-	LinearYIntercept  float64
-}
-
-func NewLinearScaler(props map[string]any) (*LinearScaler, error) {
-	linearInputSource, hasLinearInputSource, err := getUint(props, "Linear_Input_Source")
-	if err != nil {
-		return nil, err
-	}
-	if !hasLinearInputSource {
-		return nil, fmt.Errorf("Line_Input_Source not specified")
-	}
-	linearSlope, hasLinearSlope, err := getFloat64(props, "Linear_Slope")
-	if !hasLinearSlope {
-		return nil, fmt.Errorf("Linear_Slope not specified")
-	}
-	linearYIntercept, hasLinearYIntercept, err := getFloat64(props, "Linear_Y_Intercept")
-	if !hasLinearYIntercept {
-		return nil, fmt.Errorf("Linear_Y_Intercept not specified")
-	}
-	return &LinearScaler{
-		LinearInputSource: linearInputSource,
-		LinearSlope:       linearSlope,
-		LinearYIntercept:  linearYIntercept,
-	}, nil
-}
-
-func (scaler *LinearScaler) Scale(v any) float64 {
-	n, err := asFloat64(v)
-	if err != nil {
-		return math.NaN()
-	}
-	return (n * scaler.LinearSlope) + scaler.LinearYIntercept
-}
-
 func GetScalers(props map[string]any) ([]Scaler, error) {
-	numberOfScales, hasNumberOfScales, err := getInt(props, "NI_Number_Of_Scales")
+	numberOfScales, hasNumberOfScales, err := utils.GetInt(props, "NI_Number_Of_Scales")
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +27,7 @@ func GetScalers(props map[string]any) ([]Scaler, error) {
 		return nil, nil
 	}
 
-	sScalingStatus, hasScalingStatus, err := getString(props, "NI_Scaling_Status")
+	sScalingStatus, hasScalingStatus, err := utils.GetString(props, "NI_Scaling_Status")
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +53,7 @@ func GetScalers(props map[string]any) ([]Scaler, error) {
 				scalerProps[name[len(prefix):]] = value
 			}
 		}
-		scaleType, hasScaleType, err := getString(scalerProps, "Scale_Type")
+		scaleType, hasScaleType, err := utils.GetString(scalerProps, "Scale_Type")
 		if err != nil {
 			return nil, err
 		}

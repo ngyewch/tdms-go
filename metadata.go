@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
+	"github.com/ngyewch/tdms-go/scaler"
 )
 
 type MetaData struct {
@@ -109,7 +111,7 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			object.Properties[propertyName] = propertyValue
 		}
 
-		_, err = GetScalers(object.Properties)
+		_, err = scaler.GetScalers(object.Properties)
 		if err != nil {
 			return nil, err
 		}

@@ -1,73 +1,11 @@
-package tdms
+package utils
 
 import (
 	"fmt"
 	"time"
 )
 
-func getInt(props map[string]any, name string) (int, bool, error) {
-	v, exists := props[name]
-	if !exists {
-		return 0, false, nil
-	}
-	n, err := asInt(v)
-	if err != nil {
-		return 0, true, err
-	}
-	return n, true, nil
-}
-
-func getUint(props map[string]any, name string) (uint, bool, error) {
-	v, exists := props[name]
-	if !exists {
-		return 0, false, nil
-	}
-	n, err := asUint(v)
-	if err != nil {
-		return 0, true, err
-	}
-	return n, true, nil
-}
-
-func getFloat64(props map[string]any, name string) (float64, bool, error) {
-	v, exists := props[name]
-	if !exists {
-		return 0, false, nil
-	}
-	n, err := asFloat64(v)
-	if err != nil {
-		return 0, true, err
-	}
-	return n, true, nil
-}
-
-func getString(props map[string]any, name string) (string, bool, error) {
-	v, exists := props[name]
-	if !exists {
-		return "", false, nil
-	}
-	s, err := asString(v)
-	if err != nil {
-		return "", true, err
-	}
-	return s, true, nil
-}
-
-func getTime(props map[string]any, name string) (time.Time, bool, error) {
-	v, exists := props[name]
-	if !exists {
-		return time.Time{}, false, nil
-	}
-	t, err := asTime(v)
-	if err != nil {
-		return time.Time{}, true, err
-	}
-	return t, true, nil
-}
-
-// ---
-
-func asInt(v any) (int, error) {
+func AsInt(v any) (int, error) {
 	switch v1 := v.(type) {
 	case int:
 		return v1, nil
@@ -94,7 +32,7 @@ func asInt(v any) (int, error) {
 	}
 }
 
-func asUint(v any) (uint, error) {
+func AsUint(v any) (uint, error) {
 	switch v1 := v.(type) {
 	case int:
 		return uint(v1), nil
@@ -121,7 +59,7 @@ func asUint(v any) (uint, error) {
 	}
 }
 
-func asFloat64(v any) (float64, error) {
+func AsFloat64(v any) (float64, error) {
 	switch v1 := v.(type) {
 	case int:
 		return float64(v1), nil
@@ -152,7 +90,7 @@ func asFloat64(v any) (float64, error) {
 	}
 }
 
-func asString(v any) (string, error) {
+func AsString(v any) (string, error) {
 	switch v1 := v.(type) {
 	case string:
 		return v1, nil
@@ -161,7 +99,7 @@ func asString(v any) (string, error) {
 	}
 }
 
-func asTime(v any) (time.Time, error) {
+func AsTime(v any) (time.Time, error) {
 	switch v1 := v.(type) {
 	case time.Time:
 		return v1, nil

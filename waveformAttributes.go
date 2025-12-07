@@ -1,6 +1,10 @@
 package tdms
 
-import "time"
+import (
+	"time"
+
+	"github.com/ngyewch/tdms-go/utils"
+)
 
 type WaveformAttributes struct {
 	StartTime       time.Time
@@ -12,27 +16,27 @@ type WaveformAttributes struct {
 }
 
 func GetWaveformAttributes(props map[string]any) (*WaveformAttributes, error) {
-	startTime, _, err := getTime(props, "wf_start_time")
+	startTime, _, err := utils.GetTime(props, "wf_start_time")
 	if err != nil {
 		return nil, err
 	}
-	startOffset, _, err := getFloat64(props, "wf_start_offset")
+	startOffset, _, err := utils.GetFloat64(props, "wf_start_offset")
 	if err != nil {
 		return nil, err
 	}
-	increment, _, err := getFloat64(props, "wf_increment")
+	increment, _, err := utils.GetFloat64(props, "wf_increment")
 	if err != nil {
 		return nil, err
 	}
-	samples, _, err := getInt(props, "wf_samples")
+	samples, _, err := utils.GetInt(props, "wf_samples")
 	if err != nil {
 		return nil, err
 	}
-	unit, _, err := getString(props, "unit_string")
+	unit, _, err := utils.GetString(props, "unit_string")
 	if err != nil {
 		return nil, err
 	}
-	unitDescription, _, err := getString(props, "NI_UnitDescription")
+	unitDescription, _, err := utils.GetString(props, "NI_UnitDescription")
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package scaler
+package tdms
 
 import (
 	"fmt"

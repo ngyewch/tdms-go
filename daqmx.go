@@ -36,14 +36,6 @@ func (index DAQmxRawDataIndex) GetTotalSizeInBytes() uint64 {
 	return totalRawDataWidth * uint64(index.ArrayDimension) * index.ChunkSize
 }
 
-type DAQmxFormatChangingScaler struct {
-	DataType                     DataType
-	RawBufferIndex               uint32
-	RawByteOffsetWithinTheStride uint32
-	SampleFormatBitmap           uint32
-	ScaleId                      uint32
-}
-
 func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawDataIndex, error) {
 	var daqmxRawDataIndex DAQmxRawDataIndex
 	var err error
@@ -82,30 +74,4 @@ func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawData
 		daqmxRawDataIndex.RawDataWidths = append(daqmxRawDataIndex.RawDataWidths, rawDataWidth)
 	}
 	return &daqmxRawDataIndex, nil
-}
-
-func ReadDAQmxFormatChangingScaler(r io.Reader, valueReader *ValueReader) (*DAQmxFormatChangingScaler, error) {
-	var scaler DAQmxFormatChangingScaler
-	var err error
-	scaler.DataType, err = valueReader.ReadDAQmxDataType(r)
-	if err != nil {
-		return nil, err
-	}
-	scaler.RawBufferIndex, err = valueReader.ReadU32(r)
-	if err != nil {
-		return nil, err
-	}
-	scaler.RawByteOffsetWithinTheStride, err = valueReader.ReadU32(r)
-	if err != nil {
-		return nil, err
-	}
-	scaler.SampleFormatBitmap, err = valueReader.ReadU32(r)
-	if err != nil {
-		return nil, err
-	}
-	scaler.ScaleId, err = valueReader.ReadU32(r)
-	if err != nil {
-		return nil, err
-	}
-	return &scaler, nil
 }

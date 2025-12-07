@@ -1,4 +1,4 @@
-package scaler
+package tdms
 
 import (
 	"fmt"
@@ -13,10 +13,6 @@ const (
 	ScalingStatusUnscaled ScalingStatus = "unscaled"
 	ScalingStatusScaled   ScalingStatus = "scaled"
 )
-
-type Scaler interface {
-	Scale(v any) float64
-}
 
 func GetScalers(props map[string]any) ([]Scaler, error) {
 	numberOfScales, hasNumberOfScales, err := utils.GetInt(props, "NI_Number_Of_Scales")
@@ -60,11 +56,11 @@ func GetScalers(props map[string]any) ([]Scaler, error) {
 		if hasScaleType {
 			switch scaleType {
 			case "Linear":
-				scaler, err := NewLinearScaler(scalerProps)
+				newScaler, err := NewLinearScaler(scalerProps)
 				if err != nil {
 					return nil, err
 				}
-				scalers[i] = scaler
+				scalers[i] = newScaler
 			default:
 				return nil, fmt.Errorf("unknown scale type '%v'", scaleType)
 			}

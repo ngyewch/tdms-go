@@ -61,8 +61,6 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 		}
 		segment.Offset = nextSegmentOffset
 
-		fmt.Printf("segment rawDataSizeInBytes: %d\n", segment.LeadIn.NextSegmentOffset-segment.LeadIn.RawDataOffset)
-
 		_, err = file.r.Seek(fileOffset+int64(segment.LeadIn.RawDataOffset)+leadInByteLength, io.SeekStart)
 		if err != nil {
 			return err

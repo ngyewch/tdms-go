@@ -16,27 +16,27 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	if false {
+	if true {
 		fmt.Println("/")
 		tdmsFile.Root().Properties().All()(func(name string, value any) bool {
-			fmt.Printf("  * %s: %v\n", name, value)
+			fmt.Printf("  * %s: %v [%T]\n", name, value, value)
 			return true
 		})
 		for _, group := range tdmsFile.Root().Children() {
 			fmt.Printf("- %s\n", group.Name())
 			group.Properties().All()(func(name string, value any) bool {
-				fmt.Printf("    * %s: %v\n", name, value)
+				fmt.Printf("    * %s: %v [%T]\n", name, value, value)
 				return true
 			})
 			for _, channel := range group.Children() {
 				fmt.Printf("  - %s\n", channel.Name())
 				channel.Properties().All()(func(name string, value any) bool {
-					fmt.Printf("      * %s: %v\n", name, value)
+					fmt.Printf("      * %s: %v [%T]\n", name, value, value)
 					return true
 				})
 			}
 		}
 	}
-	
+
 	return nil
 }

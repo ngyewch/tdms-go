@@ -207,6 +207,41 @@ func (vr *ValueReader) ReadDataType(r io.Reader) (DataType, error) {
 	return DataType(v), nil
 }
 
+// ReadDAQmxDataType reads a DAQmx data type.
+// See https://github.com/adamreeve/npTDMS/blob/207463192d9fe59af43a41a3b9dc93d522384941/nptdms/daqmx.py#L321-L334
+func (vr *ValueReader) ReadDAQmxDataType(r io.Reader) (DataType, error) {
+	v, err := vr.ReadU32(r)
+	if err != nil {
+		return 0, err
+	}
+	switch v {
+	case 0:
+		return DataTypeU8, nil
+	case 1:
+		return DataTypeI8, nil
+	case 2:
+		return DataTypeU16, nil
+	case 3:
+		return DataTypeI16, nil
+	case 4:
+		return DataTypeU32, nil
+	case 5:
+		return DataTypeI32, nil
+	case 6:
+		return DataTypeU64, nil
+	case 7:
+		return DataTypeI64, nil
+	case 8:
+		return DataTypeSingleFloat, nil
+	case 9:
+		return DataTypeDoubleFloat, nil
+	case 0xffffffff:
+		return DataTypeTimestamp, nil
+	default:
+		return DataTypeVoid, fmt.Errorf("unknown DAQmx data type")
+	}
+}
+
 func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {
 	dataType, err := vr.ReadU32(r)
 	if err != nil {

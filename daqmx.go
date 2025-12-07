@@ -87,7 +87,7 @@ func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawData
 func ReadDAQmxFormatChangingScaler(r io.Reader, valueReader *ValueReader) (*DAQmxFormatChangingScaler, error) {
 	var scaler DAQmxFormatChangingScaler
 	var err error
-	scaler.DataType, err = valueReader.ReadDataType(r)
+	scaler.DataType, err = valueReader.ReadDAQmxDataType(r)
 	if err != nil {
 		return nil, err
 	}

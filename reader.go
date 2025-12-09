@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"sync"
+
+	"github.com/samber/oops"
 )
 
 const (
@@ -57,7 +59,12 @@ func (file *File) iterateSegments(handler func(segment *Segment) error) error {
 
 		segment, err := ReadSegment(file.r, previousSegment)
 		if err != nil {
-			return err
+			if err == io.EOF {
+				return err
+			}
+			return oops.
+				With("segmentOffset", fileOffset).
+				Wrapf(err, "invalid segment")
 		}
 		segment.Offset = nextSegmentOffset
 
@@ -144,7 +151,7 @@ func (file *File) readMetadata() error {
 	return nil
 }
 
-func (file *File) ReadChannelData(path string) error {
+func (file *File) ReadData() error {
 	err := file.iterateSegments(func(segment *Segment) error {
 		if !segment.LeadIn.ToC.RawData() {
 			return nil
@@ -152,10 +159,7 @@ func (file *File) ReadChannelData(path string) error {
 		if segment.MetaData == nil {
 			return nil
 		}
-		object := segment.MetaData.GetObjectByPath(path)
-		if object == nil {
-			return nil
-		}
+
 		// TODO
 		return nil
 	})

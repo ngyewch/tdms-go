@@ -1,6 +1,10 @@
 package tdms
 
-import "io"
+import (
+	"io"
+
+	"github.com/samber/oops"
+)
 
 type Segment struct {
 	Type     SegmentType
@@ -20,7 +24,9 @@ func ReadSegment(r io.Reader, previousSegment *Segment) (*Segment, error) {
 	if segment.LeadIn.ToC.MetaData() {
 		segment.MetaData, err = ReadMetaData(r, segment.LeadIn.ToC, previousSegment)
 		if err != nil {
-			return nil, err
+			return nil, oops.
+				In("Segment").
+				Wrapf(err, "invalid metadata")
 		}
 	}
 

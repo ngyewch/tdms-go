@@ -15,6 +15,9 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 	if err != nil {
 		return err
 	}
+	defer func(tdmsFile *tdms.File) {
+		_ = tdmsFile.Close()
+	}(tdmsFile)
 
 	if false {
 		fmt.Println("/")
@@ -36,6 +39,11 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 				})
 			}
 		}
+	}
+
+	err = tdmsFile.ReadData()
+	if err != nil {
+		return err
 	}
 
 	return nil

@@ -1,6 +1,8 @@
 package tdms
 
-import "io"
+import (
+	"io"
+)
 
 const (
 	RawDataIndexTypeSameAsPreviousSegment         = 0x00000000
@@ -14,6 +16,7 @@ type RawDataIndex interface {
 	GetArrayDimension() uint32
 	GetChunkSize() uint64
 	GetTotalSizeInBytes() uint64
+	IsCompatibleWith(rawDataIndex RawDataIndex) bool
 	PopulateScalers(scalers []Scaler)
 }
 
@@ -45,6 +48,15 @@ func (index *DefaultRawDataIndex) GetTotalSizeInBytes() uint64 {
 
 func (index *DefaultRawDataIndex) PopulateScalers(scalers []Scaler) {
 	// do nothing
+}
+
+func (index *DefaultRawDataIndex) IsCompatibleWith(rawDataIndex RawDataIndex) bool {
+	switch rawDataIndex.(type) {
+	case *DefaultRawDataIndex:
+		return true
+	default:
+		return false
+	}
 }
 
 func ReadDefaultRawDataIndex(r io.Reader, valueReader *ValueReader) (*DefaultRawDataIndex, error) {

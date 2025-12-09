@@ -6,6 +6,7 @@ import (
 	"io"
 
 	"github.com/goforj/godump"
+	"github.com/samber/oops"
 )
 
 type MetaData struct {
@@ -73,13 +74,23 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 			if rawDataIndexType == RawDataIndexTypeDAQmxFormatChangingScalerType {
 				object.RawDataIndex, err = ReadDAQmxRawDataIndex(r, valueReader)
 				if err != nil {
-					return nil, err
+					return nil, oops.
+						In("Metadata").
+						With("objectPath", object.Path).
+						Wrapf(err, "invalid DAQmx raw data index")
 				}
 			} else if rawDataIndexType == RawDataIndexTypeDAQmxDigitalLineScalerType {
-				// TODO
-				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
+				return nil, oops.
+					In("Metadata").
+					With("objectPath", object.Path).
+					With("rawDataIndexType", fmt.Sprintf("0x%08x", object.RawDataIndex)).
+					Wrapf(err, "unsupported raw data index type (TODO)")
 			} else {
-				return nil, fmt.Errorf("unsupported rawDataIndexType: 0x%08x", object.RawDataIndex)
+				return nil, oops.
+					In("Metadata").
+					With("objectPath", object.Path).
+					With("rawDataIndexType", fmt.Sprintf("0x%08x", object.RawDataIndex)).
+					Wrapf(err, "unsupported raw data index type (TODO)")
 			}
 		} else {
 			rawDataIndexBytes := make([]byte, rawDataIndexType)

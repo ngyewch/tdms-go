@@ -1,6 +1,8 @@
 package tdms
 
 import (
+	"fmt"
+	"github.com/samber/oops"
 	"io"
 )
 
@@ -38,6 +40,22 @@ func (index *DAQmxRawDataIndex) PopulateScalers(scalers []Scaler) {
 	}
 }
 
+func (index *DAQmxRawDataIndex) IsCompatibleWith(rawDataIndex RawDataIndex) bool {
+	switch otherIndex := rawDataIndex.(type) {
+	case *DAQmxRawDataIndex:
+		if len(index.Scalers) == 0 {
+
+		}
+		if len(otherIndex.Scalers) == 0 {
+
+		}
+
+		return true
+	default:
+		return false
+	}
+}
+
 func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawDataIndex, error) {
 	var daqmxRawDataIndex DAQmxRawDataIndex
 	var err error
@@ -49,6 +67,12 @@ func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawData
 	if err != nil {
 		return nil, err
 	}
+	if daqmxRawDataIndex.ArrayDimension != 1 {
+		return nil, oops.
+			In("DAQmxRawDataIndex").
+			With("arrayDimension", daqmxRawDataIndex.ArrayDimension).
+			Errorf("invalid arrayDimension")
+	}
 	daqmxRawDataIndex.ChunkSize, err = valueReader.ReadU64(r)
 	if err != nil {
 		return nil, err
@@ -56,6 +80,9 @@ func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawData
 	scalerVectorSize, err := valueReader.ReadU32(r)
 	if err != nil {
 		return nil, err
+	}
+	if scalerVectorSize == 0 {
+		return nil, fmt.Errorf("no scalers specified")
 	}
 	for i := 0; i < int(scalerVectorSize); i++ {
 		scaler, err := ReadDAQmxFormatChangingScaler(r, valueReader)

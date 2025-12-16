@@ -3,14 +3,9 @@ package tdms
 import (
 	"fmt"
 	"io"
-	"math"
 	"os"
-	"path/filepath"
 	"sync"
 
-	"github.com/go-audio/audio"
-	"github.com/go-audio/wav"
-	"github.com/gosimple/slug"
 	"github.com/ngyewch/tdms-go/utils"
 	"github.com/samber/oops"
 )
@@ -166,7 +161,18 @@ func (file *File) readMetadata() error {
 	return nil
 }
 
-func (file *File) ReadData() error {
+type Chunk struct {
+	Channels []ChannelData
+}
+
+type ChannelData struct {
+	Path               string
+	Node               *Node
+	WaveformAttributes *WaveformAttributes
+	Samples            []float64
+}
+
+func (file *File) ReadData(chunkHandler func(chunk Chunk) error) error {
 	err := file.iterateSegments(func(segment *Segment) error {
 		if !segment.LeadIn.ToC.RawData() {
 			return nil
@@ -177,11 +183,10 @@ func (file *File) ReadData() error {
 
 		if segment.LeadIn.ToC.DAQmxRawData() {
 			type Channel struct {
-				slug               string
 				object             *Object
+				node               *Node
 				rawDataIndex       *DAQmxRawDataIndex
 				waveformAttributes *WaveformAttributes
-				sampleRate         int
 			}
 
 			var channels []Channel
@@ -199,51 +204,34 @@ func (file *File) ReadData() error {
 					if daqmxFormatChangingScaler == nil {
 						return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
 					}
-					if len(channels) > 0 {
-						err := channels[0].rawDataIndex.CheckCompatibility(daqmxRawDataIndex)
-						if err != nil {
-							return err
-						}
-					}
 					node := file.Node(object.Path)
 					if node == nil {
-						return fmt.Errorf("could not read waveform attributes")
+						return fmt.Errorf("could not find object node")
 					}
 					waveformAttributes, err := GetWaveformAttributes(node.Properties().Collect())
 					if err != nil {
 						return err
 					}
+					if len(channels) > 0 {
+						err := channels[0].rawDataIndex.CheckCompatibility(daqmxRawDataIndex)
+						if err != nil {
+							return err
+						}
+						if channels[0].waveformAttributes.Increment != waveformAttributes.Increment {
+							return fmt.Errorf("wf_increment not the same")
+						}
+					}
 					channels = append(channels, Channel{
-						slug:               slug.Make(object.Path),
 						object:             object,
+						node:               node,
 						rawDataIndex:       daqmxRawDataIndex,
 						waveformAttributes: waveformAttributes,
-						sampleRate:         int(math.Ceil(1 / waveformAttributes.Increment)),
 					})
 					rawDataIndexes = append(rawDataIndexes, daqmxRawDataIndex)
 				}
 			}
 			if len(channels) > 0 {
-				var wavEncoders []*wav.Encoder
-				err := os.MkdirAll("output", 0755)
-				if err != nil {
-					return err
-				}
-				for _, channel := range channels {
-					f, err := os.Create(filepath.Join("output", channel.slug+".wav"))
-					if err != nil {
-						return err
-					}
-					defer func(f *os.File) {
-						_ = f.Close()
-					}(f)
-					wavEncoder := wav.NewEncoder(f, channel.sampleRate, 16, 1, 1)
-					defer func(wavEncoder *wav.Encoder) {
-						_ = wavEncoder.Close()
-					}(wavEncoder)
-					wavEncoders = append(wavEncoders, wavEncoder)
-				}
-
+				chunkSize := channels[0].rawDataIndex.GetChunkSize()
 				rawDataWidths := channels[0].rawDataIndex.RawDataWidths
 				buffers := make([][]byte, len(rawDataWidths))
 				var totalRawDataWidth uint32
@@ -255,67 +243,55 @@ func (file *File) ReadData() error {
 				valueReader := segment.LeadIn.ToC.ValueReader()
 				rawDataSize := segment.LeadIn.NextSegmentOffset - segment.LeadIn.RawDataOffset
 				sampleCount := int(rawDataSize / uint64(totalRawDataWidth))
-				sampleList := make([][]float64, len(channels))
-				for i := range sampleList {
-					sampleList[i] = make([]float64, sampleCount)
+
+				var chunk Chunk
+				for _, channel := range channels {
+					chunk.Channels = append(chunk.Channels, ChannelData{
+						Path:               channel.object.Path,
+						Node:               channel.node,
+						WaveformAttributes: channel.waveformAttributes,
+						Samples:            make([]float64, chunkSize),
+					})
 				}
 
-				for i := 0; i < sampleCount; i++ {
-					for bufferNo := 0; bufferNo < len(buffers); bufferNo++ {
-						_, err := file.r.Read(buffers[bufferNo])
-						if err != nil {
-							return err
+				for i := 0; i < sampleCount; i += int(chunkSize) {
+					chunkSampleCount := chunkSize
+					if i+int(chunkSize) > sampleCount {
+						chunkSampleCount = uint64(sampleCount - i)
+						for _, chunkChannel := range chunk.Channels {
+							chunkChannel.Samples = make([]float64, chunkSampleCount)
 						}
 					}
-					for channelNo, channel := range channels {
-						firstScaler := channel.rawDataIndex.Scalers[0].(*DAQmxFormatChangingScaler)
-						if firstScaler == nil {
-							return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
-						}
-						v0, err := firstScaler.ReadFromBuffer(valueReader, buffers)
-						if err != nil {
-							return err
-						}
-						v, err := utils.AsFloat64(v0)
-						if err != nil {
-							return err
-						}
-						for _, scaler := range channel.rawDataIndex.Scalers[1:] {
-							v, err = scaler.Scale(v)
+					for j := 0; j < int(chunkSampleCount); j++ {
+						for bufferNo := 0; bufferNo < len(buffers); bufferNo++ {
+							_, err := file.r.Read(buffers[bufferNo])
 							if err != nil {
 								return err
 							}
 						}
-						sampleList[channelNo][i] = v
-					}
-				}
-
-				for channelNo := range channels {
-					samples := sampleList[channelNo]
-					wavEncoder := wavEncoders[channelNo]
-					buffer := &audio.IntBuffer{
-						Format: &audio.Format{
-							NumChannels: wavEncoder.NumChans,
-							SampleRate:  wavEncoder.SampleRate,
-						},
-						Data:           make([]int, sampleCount),
-						SourceBitDepth: wavEncoder.BitDepth,
-					}
-					multiplier := math.Pow(2, float64(wavEncoder.BitDepth-1)) - 1
-					maxValue := float64(5)
-					minValue := float64(-5)
-					divisor := max(math.Abs(maxValue), math.Abs(minValue))
-
-					for i, sample := range samples {
-						if sample < minValue {
-							sample = minValue
-						} else if sample > maxValue {
-							sample = maxValue
+						for channelNo, channel := range channels {
+							firstScaler := channel.rawDataIndex.Scalers[0].(*DAQmxFormatChangingScaler)
+							if firstScaler == nil {
+								return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
+							}
+							v0, err := firstScaler.ReadFromBuffer(valueReader, buffers)
+							if err != nil {
+								return err
+							}
+							v, err := utils.AsFloat64(v0)
+							if err != nil {
+								return err
+							}
+							for _, scaler := range channel.rawDataIndex.Scalers[1:] {
+								v, err = scaler.Scale(v)
+								if err != nil {
+									return err
+								}
+							}
+							chunk.Channels[channelNo].Samples[j] = v
 						}
-						buffer.Data[i] = int(math.Round(sample * multiplier / divisor))
 					}
-
-					err = wavEncoder.Write(buffer)
+					err := chunkHandler(chunk)
 					if err != nil {
 						return err
 					}
@@ -328,7 +304,9 @@ func (file *File) ReadData() error {
 		return nil
 	})
 	if err != nil {
-		return err
+		if err != io.EOF {
+			return err
+		}
 	}
 	return nil
 }

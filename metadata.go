@@ -130,11 +130,8 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 		if object.RawDataIndex != nil {
 			object.RawDataIndex.PopulateScalers(scalers)
 		}
-		if len(scalers) > 0 {
-			fmt.Println(object.Path)
-			fmt.Printf("dataType = %+v, chunkSize = %d\n", object.RawDataIndex.GetDataType(), object.RawDataIndex.GetChunkSize())
-			godump.Dump(scalers)
-		}
+		fmt.Println(object.Path)
+		godump.Dump(object.RawDataIndex)
 
 		err = metadata.AddObject(&object)
 		if err != nil {

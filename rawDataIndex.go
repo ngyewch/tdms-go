@@ -1,6 +1,7 @@
 package tdms
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -16,7 +17,7 @@ type RawDataIndex interface {
 	GetArrayDimension() uint32
 	GetChunkSize() uint64
 	GetTotalSizeInBytes() uint64
-	IsCompatibleWith(rawDataIndex RawDataIndex) bool
+	CheckCompatibility(rawDataIndex RawDataIndex) error
 	PopulateScalers(scalers []Scaler)
 }
 
@@ -50,12 +51,12 @@ func (index *DefaultRawDataIndex) PopulateScalers(scalers []Scaler) {
 	// do nothing
 }
 
-func (index *DefaultRawDataIndex) IsCompatibleWith(rawDataIndex RawDataIndex) bool {
+func (index *DefaultRawDataIndex) CheckCompatibility(rawDataIndex RawDataIndex) error {
 	switch rawDataIndex.(type) {
 	case *DefaultRawDataIndex:
-		return true
+		return nil
 	default:
-		return false
+		return fmt.Errorf("incompatible raw data indexes [%T vs %T]", index, rawDataIndex)
 	}
 }
 

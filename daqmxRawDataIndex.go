@@ -2,15 +2,16 @@ package tdms
 
 import (
 	"fmt"
-	"github.com/samber/oops"
 	"io"
+
+	"github.com/samber/oops"
 )
 
 type DAQmxRawDataIndex struct {
 	DataType       DataType
 	ArrayDimension uint32
 	ChunkSize      uint64
-	Scalers        []*DAQmxFormatChangingScaler
+	Scalers        []Scaler
 	RawDataWidths  []uint32
 }
 
@@ -35,24 +36,32 @@ func (index *DAQmxRawDataIndex) GetTotalSizeInBytes() uint64 {
 }
 
 func (index *DAQmxRawDataIndex) PopulateScalers(scalers []Scaler) {
-	for _, indexScaler := range index.Scalers {
-		scalers[indexScaler.ScaleId] = indexScaler
+	for _, scaler := range scalers {
+		for len(index.Scalers) <= int(scaler.ScaleId()) {
+			index.Scalers = append(index.Scalers, nil)
+		}
+		index.Scalers[int(scaler.ScaleId())] = scaler
 	}
 }
 
-func (index *DAQmxRawDataIndex) IsCompatibleWith(rawDataIndex RawDataIndex) bool {
+func (index *DAQmxRawDataIndex) CheckCompatibility(rawDataIndex RawDataIndex) error {
 	switch otherIndex := rawDataIndex.(type) {
 	case *DAQmxRawDataIndex:
-		if len(index.Scalers) == 0 {
-
+		if index.ChunkSize != otherIndex.ChunkSize {
+			return fmt.Errorf("chunk size mismatch")
 		}
-		if len(otherIndex.Scalers) == 0 {
-
+		if len(index.RawDataWidths) != len(otherIndex.RawDataWidths) {
+			return fmt.Errorf("raw data widths mismatch")
 		}
-
-		return true
+		for i, rawDataWidth := range index.RawDataWidths {
+			if rawDataWidth != otherIndex.RawDataWidths[i] {
+				return fmt.Errorf("raw data widths mismatch")
+			}
+		}
+		// TODO
+		return nil
 	default:
-		return false
+		return fmt.Errorf("incompatible raw data indexes [%T vs %T]", index, rawDataIndex)
 	}
 }
 
@@ -89,7 +98,10 @@ func ReadDAQmxRawDataIndex(r io.Reader, valueReader *ValueReader) (*DAQmxRawData
 		if err != nil {
 			return nil, err
 		}
-		daqmxRawDataIndex.Scalers = append(daqmxRawDataIndex.Scalers, scaler)
+		for len(daqmxRawDataIndex.Scalers) <= int(scaler.ScaleId()) {
+			daqmxRawDataIndex.Scalers = append(daqmxRawDataIndex.Scalers, nil)
+		}
+		daqmxRawDataIndex.Scalers[int(scaler.ScaleId())] = scaler
 	}
 	rawDataWidthVectorSize, err := valueReader.ReadU32(r)
 	if err != nil {

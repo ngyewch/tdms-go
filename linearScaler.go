@@ -7,12 +7,13 @@ import (
 )
 
 type LinearScaler struct {
-	LinearInputSource uint
-	LinearSlope       float64
-	LinearYIntercept  float64
+	scaleId           uint32
+	linearInputSource uint
+	linearSlope       float64
+	linearYIntercept  float64
 }
 
-func NewLinearScaler(props map[string]any) (*LinearScaler, error) {
+func NewLinearScaler(scaleId uint32, props map[string]any) (*LinearScaler, error) {
 	linearInputSource, hasLinearInputSource, err := utils.GetUint(props, "Linear_Input_Source")
 	if err != nil {
 		return nil, err
@@ -29,10 +30,15 @@ func NewLinearScaler(props map[string]any) (*LinearScaler, error) {
 		return nil, fmt.Errorf("Linear_Y_Intercept not specified")
 	}
 	return &LinearScaler{
-		LinearInputSource: linearInputSource,
-		LinearSlope:       linearSlope,
-		LinearYIntercept:  linearYIntercept,
+		scaleId:           scaleId,
+		linearInputSource: linearInputSource,
+		linearSlope:       linearSlope,
+		linearYIntercept:  linearYIntercept,
 	}, nil
+}
+
+func (scaler *LinearScaler) ScaleId() uint32 {
+	return scaler.scaleId
 }
 
 func (scaler *LinearScaler) Scale(v any) (float64, error) {
@@ -40,5 +46,5 @@ func (scaler *LinearScaler) Scale(v any) (float64, error) {
 	if err != nil {
 		return 0, err
 	}
-	return (n * scaler.LinearSlope) + scaler.LinearYIntercept, nil
+	return (n * scaler.linearSlope) + scaler.linearYIntercept, nil
 }

@@ -40,7 +40,7 @@ func GetScalers(props map[string]any) ([]Scaler, error) {
 		return nil, fmt.Errorf("unknown scaling status: %v", scalingStatus)
 	}
 
-	scalers := make([]Scaler, numberOfScales)
+	var scalers []Scaler
 	for i := 0; i < numberOfScales; i++ {
 		scalerProps := make(map[string]any)
 		prefix := fmt.Sprintf("NI_Scale[%d]_", i)
@@ -56,11 +56,11 @@ func GetScalers(props map[string]any) ([]Scaler, error) {
 		if hasScaleType {
 			switch scaleType {
 			case "Linear":
-				newScaler, err := NewLinearScaler(scalerProps)
+				newScaler, err := NewLinearScaler(uint32(i), scalerProps)
 				if err != nil {
 					return nil, err
 				}
-				scalers[i] = newScaler
+				scalers = append(scalers, newScaler)
 			default:
 				return nil, fmt.Errorf("unknown scale type '%v'", scaleType)
 			}

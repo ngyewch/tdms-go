@@ -3,9 +3,13 @@ package tdms
 import (
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"path/filepath"
 	"sync"
 
+	"github.com/go-audio/wav"
+	"github.com/gosimple/slug"
 	"github.com/samber/oops"
 )
 
@@ -14,9 +18,10 @@ const (
 )
 
 type File struct {
-	r     io.ReadSeekCloser
-	root  *Node
-	mutex sync.Mutex
+	r       io.ReadSeekCloser
+	root    *Node
+	nodeMap map[string]*Node
+	mutex   sync.Mutex
 }
 
 func OpenFile(path string) (*File, error) {
@@ -25,7 +30,8 @@ func OpenFile(path string) (*File, error) {
 		return nil, err
 	}
 	tdmsFile := &File{
-		r: f,
+		r:       f,
+		nodeMap: make(map[string]*Node),
 	}
 	err = tdmsFile.readMetadata()
 	if err != nil {
@@ -40,6 +46,10 @@ func (file *File) Close() error {
 
 func (file *File) Root() *Node {
 	return file.root
+}
+
+func (file *File) Node(path string) *Node {
+	return file.nodeMap[path]
 }
 
 func (file *File) iterateSegments(handler func(segment *Segment) error) error {
@@ -104,6 +114,7 @@ func (file *File) readMetadata() error {
 			if objectPath.IsRoot() {
 				if root == nil {
 					root = NewNode("", object.Path)
+					file.nodeMap[object.Path] = root
 				}
 				for name, value := range object.Properties {
 					root.Properties().Insert(name, value)
@@ -120,6 +131,7 @@ func (file *File) readMetadata() error {
 				group := root.GetChildByName(objectPath.Group)
 				if group == nil {
 					group = NewNode(objectPath.Group, object.Path)
+					file.nodeMap[object.Path] = group
 					root.AddChild(group)
 				}
 				for name, value := range object.Properties {
@@ -133,6 +145,7 @@ func (file *File) readMetadata() error {
 				channel := group.GetChildByName(objectPath.Channel)
 				if channel == nil {
 					channel = NewNode(objectPath.Channel, object.Path)
+					file.nodeMap[object.Path] = channel
 					group.AddChild(channel)
 				}
 				for name, value := range object.Properties {
@@ -160,7 +173,95 @@ func (file *File) ReadData() error {
 			return nil
 		}
 
-		// TODO
+		if segment.LeadIn.ToC.DAQmxRawData() {
+			type Channel struct {
+				slug               string
+				object             *Object
+				rawDataIndex       *DAQmxRawDataIndex
+				waveformAttributes *WaveformAttributes
+			}
+
+			var channels []Channel
+			var rawDataIndexes []*DAQmxRawDataIndex
+			for _, object := range segment.MetaData.Objects() {
+				if object.RawDataIndex != nil {
+					daqmxRawDataIndex := object.RawDataIndex.(*DAQmxRawDataIndex)
+					if daqmxRawDataIndex == nil {
+						return fmt.Errorf("DAQmx raw data index expected")
+					}
+					if len(channels) > 0 {
+						err := channels[0].rawDataIndex.CheckCompatibility(daqmxRawDataIndex)
+						if err != nil {
+							return err
+						}
+					}
+					node := file.Node(object.Path)
+					if node == nil {
+						return fmt.Errorf("could not read waveform attributes")
+					}
+					waveformAttributes, err := GetWaveformAttributes(node.Properties().Collect())
+					if err != nil {
+						return err
+					}
+					channels = append(channels, Channel{
+						slug:               slug.Make(object.Path),
+						object:             object,
+						rawDataIndex:       daqmxRawDataIndex,
+						waveformAttributes: waveformAttributes,
+					})
+					rawDataIndexes = append(rawDataIndexes, daqmxRawDataIndex)
+				}
+			}
+			if len(channels) > 0 {
+				var wavEncoders []*wav.Encoder
+				err := os.MkdirAll("output", 0755)
+				if err != nil {
+					return err
+				}
+				for _, channel := range channels {
+					f, err := os.Create(filepath.Join("output", channel.slug+".wav"))
+					if err != nil {
+						return err
+					}
+					defer func(f *os.File) {
+						_ = f.Close()
+					}(f)
+					wavEncoder := wav.NewEncoder(f, int(math.Ceil(1/channel.waveformAttributes.Increment)), 16, 1, 1)
+					defer func(wavEncoder *wav.Encoder) {
+						_ = wavEncoder.Close()
+					}(wavEncoder)
+					wavEncoders = append(wavEncoders, wavEncoder)
+				}
+
+				rawDataWidths := channels[0].rawDataIndex.RawDataWidths
+				buffers := make([][]byte, len(rawDataWidths))
+				var totalRawDataWidth uint32
+				for i, rawDataWidth := range rawDataWidths {
+					buffers[i] = make([]byte, rawDataWidth)
+					totalRawDataWidth += rawDataWidth
+				}
+
+				/*
+					rawDataSize := segment.LeadIn.NextSegmentOffset - segment.LeadIn.RawDataOffset
+					records := int(rawDataSize / uint64(totalRawDataWidth))
+					for i := 0; i < records; i++ {
+						for bufferNo := 0; bufferNo < len(buffers); bufferNo++ {
+							_, err := file.r.Read(buffers[bufferNo])
+							if err != nil {
+								return err
+							}
+						}
+						for channelNo, channel := range channels {
+							scaler := channel.rawDataIndex.Scalers[0]
+						}
+					}
+				*/
+				// TODO
+			}
+		} else {
+			// TODO
+			return fmt.Errorf("not supported yet")
+		}
 		return nil
 	})
 	if err != nil {

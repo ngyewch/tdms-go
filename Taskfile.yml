@@ -28,3 +28,9 @@ tasks:
     cmds:
       #- dist/tdms-cli_linux_amd64_v1/tdms-cli test ~/NI/data4.tdms
       - dist/tdms-cli_linux_amd64_v1/tdms-cli test ~/NI/test2.tdms
+
+  test2:
+    deps: [ build ]
+    cmds:
+      #- dist/tdms-cli_linux_amd64_v1/tdms-cli test ~/NI/data4.tdms
+      - dist/tdms-cli_linux_amd64_v1/tdms-cli test ~/Concretecho/rawdata/2025-12-10_16.33.32/acoustics/2025-12-10_16.33.54_T002_acoustic.tdms

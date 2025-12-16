@@ -4,8 +4,8 @@ go 1.23
 
 require (
 	github.com/egregors/sortedmap v0.3.1
+	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/wav v1.1.0
-	github.com/goforj/godump v1.7.1
 	github.com/gosimple/slug v1.15.0
 	github.com/samber/oops v1.19.4
 	github.com/stretchr/testify v1.11.1
@@ -14,7 +14,6 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-audio/audio v1.0.0 // indirect
 	github.com/go-audio/riff v1.0.0 // indirect
 	github.com/gosimple/unidecode v1.0.1 // indirect
 	github.com/oklog/ulid/v2 v2.1.1 // indirect

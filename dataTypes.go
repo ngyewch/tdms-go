@@ -29,7 +29,7 @@ const (
 	DataTypeDAQmxRawData          = 0xffffffff
 )
 
-func (dataType DataType) SizeOf() int {
+func (dataType DataType) SizeInBytes() int {
 	switch dataType {
 	case DataTypeVoid:
 		return 0

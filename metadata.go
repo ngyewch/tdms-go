@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/goforj/godump"
 	"github.com/samber/oops"
 )
 
@@ -130,8 +129,6 @@ func ReadMetaData(r io.Reader, toc TableOfContents, previousSegment *Segment) (*
 		if object.RawDataIndex != nil {
 			object.RawDataIndex.PopulateScalers(scalers)
 		}
-		fmt.Println(object.Path)
-		godump.Dump(object.RawDataIndex)
 
 		err = metadata.AddObject(&object)
 		if err != nil {

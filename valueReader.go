@@ -242,12 +242,8 @@ func (vr *ValueReader) ReadDAQmxDataType(r io.Reader) (DataType, error) {
 	}
 }
 
-func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {
-	dataType, err := vr.ReadU32(r)
-	if err != nil {
-		return nil, err
-	}
-	switch DataType(dataType) {
+func (vr *ValueReader) ReadValueForDataType(r io.Reader, dataType DataType) (any, error) {
+	switch dataType {
 	case DataTypeVoid:
 		return vr.ReadVoid(r)
 	case DataTypeI8:
@@ -289,4 +285,12 @@ func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {
 	default:
 		return nil, fmt.Errorf("unsupported data type %d", dataType)
 	}
+}
+
+func (vr *ValueReader) ReadValue(r io.Reader) (any, error) {
+	dataType, err := vr.ReadU32(r)
+	if err != nil {
+		return nil, err
+	}
+	return vr.ReadValueForDataType(r, DataType(dataType))
 }

@@ -1,6 +1,7 @@
 package tdms
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 )
@@ -45,4 +46,21 @@ func (scaler *DAQmxFormatChangingScaler) ScaleId() uint32 {
 
 func (scaler *DAQmxFormatChangingScaler) Scale(v any) (float64, error) {
 	return 0, fmt.Errorf("DAQmxFormatChangingScaler.Scale not implemented")
+}
+
+func (scaler *DAQmxFormatChangingScaler) ReadFromBuffer(vr *ValueReader, buffers [][]byte) (any, error) {
+	if scaler.rawBufferIndex >= uint32(len(buffers)) {
+		return nil, fmt.Errorf("buffer index out of range")
+	}
+	buffer := buffers[scaler.rawBufferIndex]
+	startOffset := int(scaler.rawByteOffsetWithinTheStride)
+	endOffset := startOffset + scaler.dataType.SizeInBytes()
+	if (startOffset < 0) || (startOffset >= len(buffer)) {
+		return nil, fmt.Errorf("start byte offset out of range")
+	}
+	if (endOffset < 0) || (endOffset > len(buffer)) {
+		return nil, fmt.Errorf("end byte offset out of range")
+	}
+	b := buffer[startOffset:endOffset]
+	return vr.ReadValueForDataType(bytes.NewReader(b), scaler.dataType)
 }

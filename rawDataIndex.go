@@ -44,7 +44,7 @@ func (index *DefaultRawDataIndex) GetTotalSizeInBytes() uint64 {
 	if index.TotalSizeInBytes > 0 {
 		return index.TotalSizeInBytes
 	}
-	return uint64(index.DataType.SizeOf()) * uint64(index.ArrayDimension) * index.ChunkSize
+	return uint64(index.DataType.SizeInBytes()) * uint64(index.ArrayDimension) * index.ChunkSize
 }
 
 func (index *DefaultRawDataIndex) PopulateScalers(scalers []Scaler) {
@@ -76,7 +76,7 @@ func ReadDefaultRawDataIndex(r io.Reader, valueReader *ValueReader) (*DefaultRaw
 		return nil, err
 	}
 	// TODO confirm
-	if defaultRawDataIndex.DataType.SizeOf() <= 0 {
+	if defaultRawDataIndex.DataType.SizeInBytes() <= 0 {
 		defaultRawDataIndex.TotalSizeInBytes, err = valueReader.ReadU64(r)
 		if err != nil {
 			return nil, err

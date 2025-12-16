@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"github.com/go-audio/audio"
 	"github.com/go-audio/wav"
 	"github.com/gosimple/slug"
+	"github.com/ngyewch/tdms-go/utils"
 	"github.com/samber/oops"
 )
 
@@ -179,6 +181,7 @@ func (file *File) ReadData() error {
 				object             *Object
 				rawDataIndex       *DAQmxRawDataIndex
 				waveformAttributes *WaveformAttributes
+				sampleRate         int
 			}
 
 			var channels []Channel
@@ -188,6 +191,13 @@ func (file *File) ReadData() error {
 					daqmxRawDataIndex := object.RawDataIndex.(*DAQmxRawDataIndex)
 					if daqmxRawDataIndex == nil {
 						return fmt.Errorf("DAQmx raw data index expected")
+					}
+					if len(daqmxRawDataIndex.Scalers) <= 0 {
+						return fmt.Errorf("no scalers defined")
+					}
+					daqmxFormatChangingScaler := daqmxRawDataIndex.Scalers[0].(*DAQmxFormatChangingScaler)
+					if daqmxFormatChangingScaler == nil {
+						return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
 					}
 					if len(channels) > 0 {
 						err := channels[0].rawDataIndex.CheckCompatibility(daqmxRawDataIndex)
@@ -208,6 +218,7 @@ func (file *File) ReadData() error {
 						object:             object,
 						rawDataIndex:       daqmxRawDataIndex,
 						waveformAttributes: waveformAttributes,
+						sampleRate:         int(math.Ceil(1 / waveformAttributes.Increment)),
 					})
 					rawDataIndexes = append(rawDataIndexes, daqmxRawDataIndex)
 				}
@@ -226,7 +237,7 @@ func (file *File) ReadData() error {
 					defer func(f *os.File) {
 						_ = f.Close()
 					}(f)
-					wavEncoder := wav.NewEncoder(f, int(math.Ceil(1/channel.waveformAttributes.Increment)), 16, 1, 1)
+					wavEncoder := wav.NewEncoder(f, channel.sampleRate, 16, 1, 1)
 					defer func(wavEncoder *wav.Encoder) {
 						_ = wavEncoder.Close()
 					}(wavEncoder)
@@ -241,22 +252,70 @@ func (file *File) ReadData() error {
 					totalRawDataWidth += rawDataWidth
 				}
 
-				/*
-					rawDataSize := segment.LeadIn.NextSegmentOffset - segment.LeadIn.RawDataOffset
-					records := int(rawDataSize / uint64(totalRawDataWidth))
-					for i := 0; i < records; i++ {
-						for bufferNo := 0; bufferNo < len(buffers); bufferNo++ {
-							_, err := file.r.Read(buffers[bufferNo])
+				valueReader := segment.LeadIn.ToC.ValueReader()
+				rawDataSize := segment.LeadIn.NextSegmentOffset - segment.LeadIn.RawDataOffset
+				sampleCount := int(rawDataSize / uint64(totalRawDataWidth))
+				sampleList := make([][]float64, len(channels))
+				for i := range sampleList {
+					sampleList[i] = make([]float64, sampleCount)
+				}
+
+				for i := 0; i < sampleCount; i++ {
+					for bufferNo := 0; bufferNo < len(buffers); bufferNo++ {
+						_, err := file.r.Read(buffers[bufferNo])
+						if err != nil {
+							return err
+						}
+					}
+					for channelNo, channel := range channels {
+						firstScaler := channel.rawDataIndex.Scalers[0].(*DAQmxFormatChangingScaler)
+						if firstScaler == nil {
+							return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
+						}
+						v0, err := firstScaler.ReadFromBuffer(valueReader, buffers)
+						if err != nil {
+							return err
+						}
+						v, err := utils.AsFloat64(v0)
+						if err != nil {
+							return err
+						}
+						for _, scaler := range channel.rawDataIndex.Scalers[1:] {
+							v, err = scaler.Scale(v)
 							if err != nil {
 								return err
 							}
 						}
-						for channelNo, channel := range channels {
-							scaler := channel.rawDataIndex.Scalers[0]
-						}
+						sampleList[channelNo][i] = v
 					}
-				*/
-				// TODO
+				}
+
+				for channelNo := range channels {
+					samples := sampleList[channelNo]
+					wavEncoder := wavEncoders[channelNo]
+					buffer := &audio.IntBuffer{
+						Format: &audio.Format{
+							NumChannels: wavEncoder.NumChans,
+							SampleRate:  wavEncoder.SampleRate,
+						},
+						Data:           make([]int, sampleCount),
+						SourceBitDepth: wavEncoder.BitDepth,
+					}
+					multiplier := math.Pow(2, float64(wavEncoder.BitDepth-1)) - 1
+					maxValue := float64(5)
+					for i, sample := range samples {
+						if sample < -maxValue {
+							sample = -maxValue
+						} else if sample > maxValue {
+							sample = maxValue
+						}
+						buffer.Data[i] = int(math.Round(sample * multiplier / maxValue))
+					}
+					err = wavEncoder.Write(buffer)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		} else {
 			// TODO

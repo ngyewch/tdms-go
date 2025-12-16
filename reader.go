@@ -303,14 +303,18 @@ func (file *File) ReadData() error {
 					}
 					multiplier := math.Pow(2, float64(wavEncoder.BitDepth-1)) - 1
 					maxValue := float64(5)
+					minValue := float64(-5)
+					divisor := max(math.Abs(maxValue), math.Abs(minValue))
+
 					for i, sample := range samples {
-						if sample < -maxValue {
-							sample = -maxValue
+						if sample < minValue {
+							sample = minValue
 						} else if sample > maxValue {
 							sample = maxValue
 						}
-						buffer.Data[i] = int(math.Round(sample * multiplier / maxValue))
+						buffer.Data[i] = int(math.Round(sample * multiplier / divisor))
 					}
+
 					err = wavEncoder.Write(buffer)
 					if err != nil {
 						return err

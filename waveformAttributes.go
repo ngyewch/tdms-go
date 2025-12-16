@@ -15,6 +15,10 @@ type WaveformAttributes struct {
 	UnitDescription string
 }
 
+func (waveformAttributes WaveformAttributes) SampleRate() float64 {
+	return 1 / float64(waveformAttributes.Increment)
+}
+
 func GetWaveformAttributes(props map[string]any) (*WaveformAttributes, error) {
 	startTime, _, err := utils.GetTime(props, "wf_start_time")
 	if err != nil {

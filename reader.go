@@ -162,7 +162,8 @@ func (file *File) readMetadata() error {
 }
 
 type Chunk struct {
-	Channels []ChannelData
+	FileOffset int64
+	Channels   []ChannelData
 }
 
 type ChannelData struct {
@@ -291,7 +292,12 @@ func (file *File) ReadData(chunkHandler func(chunk Chunk) error) error {
 							chunk.Channels[channelNo].Samples[j] = v
 						}
 					}
-					err := chunkHandler(chunk)
+					fileOffset, err := file.r.Seek(0, io.SeekCurrent)
+					if err != nil {
+						return err
+					}
+					chunk.FileOffset = fileOffset
+					err = chunkHandler(chunk)
 					if err != nil {
 						return err
 					}

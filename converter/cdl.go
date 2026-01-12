@@ -81,10 +81,39 @@ func ConvertToCDL(inputFile string, outputFile string) error {
 					return fmt.Sprintf("%v", propertyValue)
 				}
 			}(propertyValue)
-			_, err = f.WriteString(fmt.Sprintf("\t\t\t%s:%s = \"%s\" ;\n", variableName, propertyName, convertedPropertyValue))
+			_, err = f.WriteString(fmt.Sprintf("\t\t\t%s:%s = \"%s\" ;\n", variableName, normalizeNetCDFIdentifier(propertyName), convertedPropertyValue))
 			if err != nil {
 				return err
 			}
+		}
+	}
+
+	_, err = f.WriteString("\tdata:\n")
+	if err != nil {
+		return err
+	}
+	for _, channel := range channels {
+		variableName := normalizeNetCDFIdentifier(channel.Name())
+		values := datasetMap[channel.Path()]
+		_, err = f.WriteString(fmt.Sprintf("\t\t%s = ", variableName))
+		if err != nil {
+			return err
+		}
+		for i, v := range values {
+			if i > 0 {
+				_, err = f.WriteString(", ")
+				if err != nil {
+					return err
+				}
+			}
+			_, err = f.WriteString(fmt.Sprintf("%f", v))
+			if err != nil {
+				return err
+			}
+		}
+		_, err = f.WriteString(fmt.Sprintf(" ;\n"))
+		if err != nil {
+			return err
 		}
 	}
 
@@ -98,8 +127,8 @@ func ConvertToCDL(inputFile string, outputFile string) error {
 
 func normalizeNetCDFIdentifier(s string) string {
 	var s2 string
-	for _, c := range s {
-		if isValidNetCDFIdentifierChar(c) {
+	for i, c := range s {
+		if isValidNetCDFIdentifierChar(i, c) {
 			s2 += string(c)
 		} else {
 			s2 += "_"
@@ -108,58 +137,18 @@ func normalizeNetCDFIdentifier(s string) string {
 	return s2
 }
 
-func isValidNetCDFIdentifierChar(c rune) bool {
-	return ((c >= 'a') && (c <= 'z')) ||
+func isValidNetCDFIdentifierChar(i int, c rune) bool {
+	if ((c >= 'a') && (c <= 'z')) ||
 		((c >= 'A') && (c <= 'Z')) ||
-		((c >= '0') && (c <= '9')) ||
-		(c == '!') ||
-		(c == '#') ||
-		(c == '$') ||
-		(c == '%') ||
-		(c == '&') ||
-		(c == '*') ||
-		(c == ':') ||
-		(c == ';') ||
-		(c == '<') ||
-		(c == '=') ||
-		(c == '>') ||
-		(c == '?') ||
-		(c == '/') ||
-		(c == '^') ||
-		(c == '|') ||
-		(c == '~') ||
-		(c == '_') ||
+		(c == '_') {
+		return true
+	}
+	if i == 0 {
+		return false
+	}
+	return ((c >= '0') && (c <= '9')) ||
 		(c == '.') ||
 		(c == '@') ||
 		(c == '+') ||
 		(c == '-')
 }
-
-/*
-func isValidNetCDFIdentifierChar(c rune) bool {
-	return ((c >= 'a') && (c <= 'z')) ||
-		((c >= 'A') && (c <= 'Z')) ||
-		((c >= '0') && (c <= '9')) ||
-		(c == '!') ||
-		(c == '#') ||
-		(c == '$') ||
-		(c == '%') ||
-		(c == '&') ||
-		(c == '*') ||
-		(c == ':') ||
-		(c == ';') ||
-		(c == '<') ||
-		(c == '=') ||
-		(c == '>') ||
-		(c == '?') ||
-		(c == '/') ||
-		(c == '^') ||
-		(c == '|') ||
-		(c == '~') ||
-		(c == '_') ||
-		(c == '.') ||
-		(c == '@') ||
-		(c == '+') ||
-		(c == '-')
-}
-*/

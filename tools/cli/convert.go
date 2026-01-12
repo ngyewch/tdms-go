@@ -26,6 +26,8 @@ func doConvert(ctx context.Context, cmd *cli.Command) error {
 		return doConvertToMAT(ctx, inputFile, outputFile)
 	case ".h5", ".hdf5":
 		return doConvertToHDF5(ctx, inputFile, outputFile)
+	case ".cdl":
+		return doConvertToCDL(ctx, inputFile, outputFile)
 	default:
 		return fmt.Errorf("unsupported output file extension")
 	}
@@ -37,4 +39,8 @@ func doConvertToHDF5(ctx context.Context, inputFile string, outputFile string) e
 
 func doConvertToMAT(ctx context.Context, inputFile string, outputFile string) error {
 	return converter.ConvertToMAT(inputFile, outputFile)
+}
+
+func doConvertToCDL(ctx context.Context, inputFile string, outputFile string) error {
+	return converter.ConvertToCDL(inputFile, outputFile)
 }

@@ -25,6 +25,12 @@ func doTest(ctx context.Context, cmd *cli.Command) error {
 		_ = tdmsFile.Close()
 	}(tdmsFile)
 
+	sampleCount, err := tdmsFile.GetSampleCount()
+	if err != nil {
+		return err
+	}
+	fmt.Printf("sampleCount: %d\n", sampleCount)
+
 	if false {
 		fmt.Println("/")
 		tdmsFile.Root().Properties().All()(func(name string, value any) bool {

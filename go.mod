@@ -1,6 +1,6 @@
 module github.com/ngyewch/tdms-go
 
-go 1.23
+go 1.25
 
 require (
 	github.com/egregors/sortedmap v0.3.1
@@ -8,6 +8,8 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/gosimple/slug v1.15.0
 	github.com/samber/oops v1.20.0
+	github.com/scigolib/hdf5 v0.13.1
+	github.com/scigolib/matlab v0.3.1
 	github.com/stretchr/testify v1.11.1
 	github.com/urfave/cli/v3 v3.6.1
 )

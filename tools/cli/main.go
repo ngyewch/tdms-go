@@ -17,6 +17,10 @@ var (
 		Name:      "input-file",
 		UsageText: "(input file)",
 	}
+	outputFileArg = &cli.StringArg{
+		Name:      "output-file",
+		UsageText: "(output file)",
+	}
 
 	app = &cli.Command{
 		Name:    "tdms-cli",
@@ -24,6 +28,15 @@ var (
 		Version: version,
 		Action:  nil,
 		Commands: []*cli.Command{
+			{
+				Name:  "convert",
+				Usage: "convert",
+				Arguments: []cli.Argument{
+					inputFileArg,
+					outputFileArg,
+				},
+				Action: doConvert,
+			},
 			{
 				Name:  "test",
 				Usage: "test",

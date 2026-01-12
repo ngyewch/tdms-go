@@ -173,6 +173,92 @@ type ChannelData struct {
 	Samples            []float64
 }
 
+func (file *File) GetSampleCount() (uint64, error) {
+	var totalSampleCount uint64
+	err := file.iterateSegments(func(segment *Segment) error {
+		if !segment.LeadIn.ToC.RawData() {
+			return nil
+		}
+		if segment.MetaData == nil {
+			return nil
+		}
+
+		if segment.LeadIn.ToC.DAQmxRawData() {
+			type Channel struct {
+				object             *Object
+				node               *Node
+				rawDataIndex       *DAQmxRawDataIndex
+				waveformAttributes *WaveformAttributes
+			}
+
+			var channels []Channel
+			var rawDataIndexes []*DAQmxRawDataIndex
+			for _, object := range segment.MetaData.Objects() {
+				if object.RawDataIndex != nil {
+					daqmxRawDataIndex := object.RawDataIndex.(*DAQmxRawDataIndex)
+					if daqmxRawDataIndex == nil {
+						return fmt.Errorf("DAQmx raw data index expected")
+					}
+					if len(daqmxRawDataIndex.Scalers) <= 0 {
+						return fmt.Errorf("no scalers defined")
+					}
+					daqmxFormatChangingScaler := daqmxRawDataIndex.Scalers[0].(*DAQmxFormatChangingScaler)
+					if daqmxFormatChangingScaler == nil {
+						return fmt.Errorf("DAQmx format changing scaler expected as first scaler")
+					}
+					node := file.Node(object.Path)
+					if node == nil {
+						return fmt.Errorf("could not find object node")
+					}
+					waveformAttributes, err := GetWaveformAttributes(node.Properties().Collect())
+					if err != nil {
+						return err
+					}
+					if len(channels) > 0 {
+						err := channels[0].rawDataIndex.CheckCompatibility(daqmxRawDataIndex)
+						if err != nil {
+							return err
+						}
+						if channels[0].waveformAttributes.Increment != waveformAttributes.Increment {
+							return fmt.Errorf("wf_increment not the same")
+						}
+					}
+					channels = append(channels, Channel{
+						object:             object,
+						node:               node,
+						rawDataIndex:       daqmxRawDataIndex,
+						waveformAttributes: waveformAttributes,
+					})
+					rawDataIndexes = append(rawDataIndexes, daqmxRawDataIndex)
+				}
+			}
+			if len(channels) > 0 {
+				rawDataWidths := channels[0].rawDataIndex.RawDataWidths
+				buffers := make([][]byte, len(rawDataWidths))
+				var totalRawDataWidth uint32
+				for i, rawDataWidth := range rawDataWidths {
+					buffers[i] = make([]byte, rawDataWidth)
+					totalRawDataWidth += rawDataWidth
+				}
+
+				rawDataSize := segment.LeadIn.NextSegmentOffset - segment.LeadIn.RawDataOffset
+				sampleCount := int(rawDataSize / uint64(totalRawDataWidth))
+				totalSampleCount += uint64(sampleCount)
+			}
+		} else {
+			// TODO
+			return fmt.Errorf("not supported yet")
+		}
+		return nil
+	})
+	if err != nil {
+		if err != io.EOF {
+			return 0, err
+		}
+	}
+	return totalSampleCount, nil
+}
+
 func (file *File) ReadData(chunkHandler func(chunk Chunk) error) error {
 	err := file.iterateSegments(func(segment *Segment) error {
 		if !segment.LeadIn.ToC.RawData() {

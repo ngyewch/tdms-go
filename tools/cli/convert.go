@@ -28,6 +28,8 @@ func doConvert(ctx context.Context, cmd *cli.Command) error {
 		return doConvertToHDF5(ctx, inputFile, outputFile)
 	case ".cdl":
 		return doConvertToCDL(ctx, inputFile, outputFile)
+	case ".nc":
+		return doConvertToNetCDF4(ctx, inputFile, outputFile)
 	default:
 		return fmt.Errorf("unsupported output file extension")
 	}
@@ -43,4 +45,8 @@ func doConvertToMAT(ctx context.Context, inputFile string, outputFile string) er
 
 func doConvertToCDL(ctx context.Context, inputFile string, outputFile string) error {
 	return converter.ConvertToCDL(inputFile, outputFile)
+}
+
+func doConvertToNetCDF4(ctx context.Context, inputFile string, outputFile string) error {
+	return converter.ConvertToNetCDF4(inputFile, outputFile)
 }

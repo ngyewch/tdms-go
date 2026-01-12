@@ -2,6 +2,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/egregors/sortedmap v0.3.1 h1:9lxYx+LVR7776cLsvQCwWg17YZhcrP2rQ+uY6FSDCas=
 github.com/egregors/sortedmap v0.3.1/go.mod h1:SAutR40ZtR+rQqQ9NkAvdSzQe2hvnNcq30JJBUqBpF4=
+github.com/fhs/go-netcdf v1.2.1 h1:Gdxo962yQtRNw6wJ2RRB693QmsMBngQRJN/v0UEP1Z8=
+github.com/fhs/go-netcdf v1.2.1/go.mod h1:msn14RWMjc966goHHzja4PTDaphTENRg2vo+3f27Wpg=
 github.com/go-audio/audio v1.0.0 h1:zS9vebldgbQqktK4H0lUqWrG8P0NxCJVqcj7ZpNnwd4=
 github.com/go-audio/audio v1.0.0/go.mod h1:6uAu0+H2lHkwdGsAY+j2wHPNPpPoeg5AaEFh9FlA+Zs=
 github.com/go-audio/riff v1.0.0 h1:d8iCGbDvox9BfLagY94fBynxSPHO80LmZCaOsmKxokA=

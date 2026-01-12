@@ -10,14 +10,14 @@ builds:
     binary: tdms-cli
     dir: tools/cli
     env:
-      - CGO_ENABLED=0
+      - CGO_ENABLED=1
     goos:
       - linux
-      - darwin
-      - windows
+      #- darwin
+      #- windows
     goarch:
       - amd64
-      - arm64
+      #- arm64
     ldflags:
       - -s -w
       - -X main.version={{ if index .Env "VERSION" }}{{ .Env.VERSION }}{{ else }}{{ .Version }}{{ end }}

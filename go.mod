@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/egregors/sortedmap v0.3.1
+	github.com/fhs/go-netcdf v1.2.1
 	github.com/go-audio/audio v1.0.0
 	github.com/go-audio/wav v1.1.0
 	github.com/gosimple/slug v1.15.0

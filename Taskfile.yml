@@ -38,4 +38,4 @@ tasks:
   test3:
     deps: [ build ]
     cmds:
-      - dist/tdms-cli_linux_amd64_v1/tdms-cli convert ~/Concretecho/rawdata/2025-12-10_15.29.16/acoustics/2025-12-10_15.30.37_T002_acoustic.tdms output/output.cdl && ncgen -b -o output/output.nc output/output.cdl
+      - dist/tdms-cli_linux_amd64_v1/tdms-cli convert ~/Concretecho/rawdata/2025-12-10_15.29.16/acoustics/2025-12-10_15.30.37_T002_acoustic.tdms output/output.nc
